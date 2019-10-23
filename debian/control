@@ -1,5 +1,5 @@
 Source: ofono
-Section: admin
+Section: droid4
 Priority: optional
 Maintainer: Debian Telepathy maintainers <pkg-telepathy-maintainers@lists.alioth.debian.org>
 Uploaders: Hector Oron <zumbi@debian.org>
