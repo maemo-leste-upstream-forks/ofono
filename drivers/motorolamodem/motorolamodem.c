@@ -19,34 +19,31 @@
  *
  */
 
-enum ofono_vendor {
-	OFONO_VENDOR_GENERIC = 0,
-	OFONO_VENDOR_CALYPSO,
-	OFONO_VENDOR_IFX,
-	OFONO_VENDOR_STE,
-	OFONO_VENDOR_MBM,
-	OFONO_VENDOR_GOBI,
-	OFONO_VENDOR_QUALCOMM_MSM,
-	OFONO_VENDOR_OPTION_HSO,
-	OFONO_VENDOR_ZTE,
-	OFONO_VENDOR_HUAWEI,
-	OFONO_VENDOR_SIERRA,
-	OFONO_VENDOR_NOVATEL,
-	OFONO_VENDOR_WAVECOM,
-	OFONO_VENDOR_NOKIA,
-	OFONO_VENDOR_PHONESIM,
-	OFONO_VENDOR_TELIT,
-	OFONO_VENDOR_SPEEDUP,
-	OFONO_VENDOR_SAMSUNG,
-	OFONO_VENDOR_SIMCOM,
-	OFONO_VENDOR_SIMCOM_SIM900,
-	OFONO_VENDOR_ICERA,
-	OFONO_VENDOR_WAVECOM_Q2XXX,
-	OFONO_VENDOR_ALCATEL,
-	OFONO_VENDOR_QUECTEL,
-	OFONO_VENDOR_QUECTEL_SERIAL,
-	OFONO_VENDOR_UBLOX,
-	OFONO_VENDOR_XMM,
-	OFONO_VENDOR_GEMALTO,
-	OFONO_VENDOR_MOTMDM,
-};
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#include <glib.h>
+#include <gatchat.h>
+
+#define OFONO_API_SUBJECT_TO_CHANGE
+#include <ofono/plugin.h>
+#include <ofono/types.h>
+
+#include "motorolamodem.h"
+
+static int motorolamodem_init(void)
+{
+	motorola_voicecall_init();
+
+	return 0;
+}
+
+static void motorolamodem_exit(void)
+{
+	motorola_voicecall_exit();
+}
+
+OFONO_PLUGIN_DEFINE(motorolamodem, "Motorola modem driver", VERSION,
+			OFONO_PLUGIN_PRIORITY_DEFAULT,
+			motorolamodem_init, motorolamodem_exit)
