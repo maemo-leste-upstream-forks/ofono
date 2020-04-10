@@ -60,20 +60,26 @@
 #include <drivers/qmimodem/wda.h>
 #include <drivers/qmimodem/util.h>
 
-enum motmdm_dlc {
-	VOICE_DLC,
-	INSMS_DLC,
-	OUTSMS_DLC,
-	NUM_DLC,
+enum motmdm_chat {
+	DLC_VOICE,
+	DLC_SMS_RECV,
+	DLC_SMS_XMIT,
+	USB_AT,
+	NUM_CHAT,
 };
 
-static const char *devices[NUM_DLC] = { "/dev/motmdm1", "/dev/motmdm9", "/dev/motmdm3" };
+#define NUM_DLC		(DLC_SMS_XMIT + 1)
+
+static const char *devices[] = {
+	"/dev/motmdm1",
+	"/dev/motmdm9",
+	"/dev/motmdm3",
+};
 
 struct motmdm_data {
 	struct qmi_device *device;
 	struct qmi_service *dms;
-	GAtChat *at;
-	GAtChat *dlcs[NUM_DLC];
+	GAtChat *chat[NUM_CHAT];
 	unsigned long features;
 	unsigned int discover_attempts;
 	uint8_t oper_mode;
@@ -279,9 +285,10 @@ static void motmdm_at_debug(const char *str, void *user_data)
 	ofono_info("%s%s", prefix, str);
 }
 
-static int open_device(struct ofono_modem *modem, const char *device,
-			GAtChat **chatp)
+static int motmdm_open_device(struct ofono_modem *modem, const char *device,
+				enum motmdm_chat index)
 {
+	struct motmdm_data *data = ofono_modem_get_data(modem);
 	GIOChannel *channel;
 	GAtSyntax *syntax;
 	GAtChat *chat = NULL;
@@ -302,11 +309,7 @@ static int open_device(struct ofono_modem *modem, const char *device,
 	if (getenv("OFONO_AT_DEBUG"))
 		g_at_chat_set_debug(chat, motmdm_at_debug, "");
 
-	g_at_chat_add_delimiter(chat, ":");
-	g_at_chat_add_terminator(chat, "ERROR=", 6, FALSE);
-	g_at_chat_add_terminator(chat, "+CLCC:", -1, TRUE);
-
-	*chatp = chat;
+	data->chat[index] = chat;
 
 	return 0;
 }
@@ -315,13 +318,27 @@ static int motmdm_open_dlc_devices(struct ofono_modem *modem)
 {
 	struct motmdm_data *data = ofono_modem_get_data(modem);
 	int i, err, found = 0;
+	GAtChat **chat;
 
 	for (i = 0; i < NUM_DLC; i++) {
-		err = open_device(modem, devices[i], &data->dlcs[i]);
+		chat = &data->chat[i];
+
+		err = motmdm_open_device(modem, devices[i], i);
 		if (err < 0) {
 			ofono_warn("Could not open dlc%i", i);
 			continue;
 		}
+
+		switch(i) {
+		case DLC_VOICE:
+			g_at_chat_add_delimiter(*chat, ":");
+			g_at_chat_add_terminator(*chat, "ERROR=", 6, FALSE);
+			g_at_chat_add_terminator(*chat, "+CLCC:", -1, TRUE);
+			break;
+		default:
+			break;
+		}
+
 		found++;
 	}
 
@@ -357,12 +374,11 @@ static int motmdm_enable(struct ofono_modem *modem)
 
 	qmi_device_discover(data->device, discover_cb, modem, NULL);
 
-	err = open_device(modem, ofono_modem_get_string(modem, "Modem"),
-			  &data->at);
-	if (err < 0) {
-		data->at = NULL;
+	err = motmdm_open_device(modem,
+			ofono_modem_get_string(modem, "Modem"),
+				USB_AT);
+	if (err < 0)
 		ofono_warn("Could not open AT modem");
-	}
 
 	err = motmdm_open_dlc_devices(modem);
 	if (err < NUM_DLC)
@@ -387,8 +403,8 @@ static int motmdm_disable(struct ofono_modem *modem)
 
 	DBG("%p", modem);
 
-	g_at_chat_cancel_all(data->dlcs[VOICE_DLC]);
-	g_at_chat_unregister_all(data->dlcs[VOICE_DLC]);
+	g_at_chat_cancel_all(data->chat[DLC_VOICE]);
+	g_at_chat_unregister_all(data->chat[DLC_VOICE]);
 
 	qmi_service_cancel_all(data->dms);
 	qmi_service_unregister_all(data->dms);
@@ -463,7 +479,7 @@ static void motmdm_pre_sim(struct ofono_modem *modem)
 	ofono_location_reporting_create(modem, 0, "qmimodem", data->device);
 
 	ofono_voicecall_create(modem, OFONO_VENDOR_MOTMDM, "motorolamodem",
-					data->dlcs[VOICE_DLC]);
+					data->chat[DLC_VOICE]);
 }
 
 static void motmdm_post_sim(struct ofono_modem *modem)
