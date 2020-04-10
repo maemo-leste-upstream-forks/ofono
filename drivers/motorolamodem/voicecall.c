@@ -34,6 +34,8 @@
 #include <ofono/modem.h>
 #include <ofono/voicecall.h>
 
+#include <drivers/atmodem/atutil.h>
+
 #include "gatchat.h"
 #include "gatresult.h"
 

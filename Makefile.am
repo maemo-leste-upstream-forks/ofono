@@ -515,7 +515,7 @@ builtin_sources += drivers/cdmamodem/cdmamodem.h \
 			drivers/cdmamodem/connman.c
 endif
 
-if MOTMODEM
+if MOTOROLAMODEM
 builtin_modules += motorolamodem
 builtin_sources += drivers/motorolamodem/motorolamodem.c \
 			drivers/motorolamodem/motorolamodem.h \

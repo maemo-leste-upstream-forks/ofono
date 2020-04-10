@@ -19,7 +19,5 @@
  *
  */
 
-#include <drivers/atmodem/atutil.h>
-
 extern void motorola_voicecall_init(void);
 extern void motorola_voicecall_exit(void);
