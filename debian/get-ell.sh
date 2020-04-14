@@ -26,6 +26,7 @@ ell/uintset.h
 ell/string.h
 ell/private.h
 ell/missing.h
+ell/gpio.h
 ell/util.c
 ell/test.c
 ell/strv.c
@@ -43,6 +44,7 @@ ell/uuid.c
 ell/file.c
 ell/uintset.c
 ell/string.c
+ell/gpio.c
 "
 
 mkdir -p ../ell
