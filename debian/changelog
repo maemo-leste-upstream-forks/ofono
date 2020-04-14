@@ -1,3 +1,9 @@
+ofono (1:1.31-1) unstable; urgency=medium
+
+  * Initial version for Droid 4
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Tue, 14 Apr 2020 21:52:15 +0200
+
 ofono (1:1.29-1) unstable; urgency=medium
 
   * Use epoch for droid4 version
