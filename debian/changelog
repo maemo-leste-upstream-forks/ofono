@@ -1,3 +1,9 @@
+ofono (1:1.31.1-1) unstable; urgency=medium
+
+  * ofono version for Droid 4 for Kernel 5.7
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Thu, 14 May 2020 13:40:50 +0200
+
 ofono (1:1.31-1) unstable; urgency=medium
 
   * Initial version for Droid 4
