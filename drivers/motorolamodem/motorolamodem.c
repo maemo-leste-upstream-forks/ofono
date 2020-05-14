@@ -41,7 +41,7 @@ guint mot_at_chat_send(GAtChat *chat, const char *cmd,
 {
 	struct timeval now;
 	char buf[256];
-	uint16_t id;
+	u_int16_t id;
 
 	gettimeofday(&now, NULL);
 	id = (now.tv_sec % 100) * 100;
