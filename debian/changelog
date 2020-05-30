@@ -1,3 +1,9 @@
+ofono (1:1.32.3-1) unstable; urgency=medium
+
+  * Report technology as well
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Sat, 30 May 2020 11:56:58 +0200
+
 ofono (1:1.31.2-1) unstable; urgency=medium
 
   * Pull in motmdm-serdev-ngsm from tmlind up and until
