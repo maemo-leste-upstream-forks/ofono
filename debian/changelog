@@ -1,3 +1,9 @@
+ofono (1:1.32.4-1) unstable; urgency=medium
+
+  * Add sim notifier from Tony
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Sun, 07 Jun 2020 16:48:23 +0200
+
 ofono (1:1.32.3-1) unstable; urgency=medium
 
   * Report technology as well
