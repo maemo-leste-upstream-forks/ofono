@@ -1543,7 +1543,10 @@ enum qmi_device_expected_data_format qmi_device_get_expected_data_format(
 	interface = get_device_interface(device);
 
 	if (!interface) {
-		DBG("Error while getting interface name");
+		DBG("Error while getting interface name (not qmi_wwan?)");
+
+		/* Assume that all other network drivers use Raw-IP */
+		expected = QMI_DEVICE_EXPECTED_DATA_FORMAT_RAW_IP;
 		goto done;
 	}
 

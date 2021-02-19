@@ -390,12 +390,25 @@ static void create_wds_cb(struct qmi_service *service, void *user_data)
 					pkt_status_notify, gc, NULL);
 }
 
+static void set_data_format_cb(struct qmi_result *result, void *user_data)
+{
+	struct ofono_gprs_context *gc = user_data;
+	struct gprs_context_data *data = ofono_gprs_context_get_data(gc);
+	uint16_t error;
+
+	qmi_result_set_error(result, &error);
+	DBG("result %#x\n", error);
+
+	qmi_service_create_shared(data->dev, QMI_SERVICE_WDS, create_wds_cb, gc,
+									NULL);
+}
+
 static void get_data_format_cb(struct qmi_result *result, void *user_data)
 {
 	struct ofono_gprs_context *gc = user_data;
 	struct gprs_context_data *data = ofono_gprs_context_get_data(gc);
-	uint32_t llproto;
-	enum qmi_device_expected_data_format expected_llproto;
+	uint32_t llproto, new_llproto = 0;
+	enum qmi_device_expected_data_format expected_llproto, new_expected = 0;
 
 	DBG("");
 
@@ -410,19 +423,41 @@ static void get_data_format_cb(struct qmi_result *result, void *user_data)
 	if ((llproto == QMI_WDA_DATA_LINK_PROTOCOL_802_3) &&
 			(expected_llproto ==
 				QMI_DEVICE_EXPECTED_DATA_FORMAT_RAW_IP)) {
-		if (!qmi_device_set_expected_data_format(data->dev,
-					QMI_DEVICE_EXPECTED_DATA_FORMAT_802_3))
-			DBG("Fail to set expected data to 802.3");
-		else
-			DBG("expected data set to 802.3");
+		new_llproto = QMI_WDA_DATA_LINK_PROTOCOL_RAW_IP;
+		new_expected = QMI_DEVICE_EXPECTED_DATA_FORMAT_802_3;
 	} else if ((llproto == QMI_WDA_DATA_LINK_PROTOCOL_RAW_IP) &&
 			(expected_llproto ==
 				QMI_DEVICE_EXPECTED_DATA_FORMAT_802_3)) {
-		if (!qmi_device_set_expected_data_format(data->dev,
-					QMI_DEVICE_EXPECTED_DATA_FORMAT_RAW_IP))
-			DBG("Fail to set expected data to raw-ip");
-		else
-			DBG("expected data set to raw-ip");
+		new_llproto = QMI_WDA_DATA_LINK_PROTOCOL_802_3;
+		new_expected = QMI_DEVICE_EXPECTED_DATA_FORMAT_RAW_IP;
+	}
+
+	/* First, try to change expected data format */
+	if (new_expected) {
+		if (qmi_device_set_expected_data_format(data->dev,
+					QMI_DEVICE_EXPECTED_DATA_FORMAT_RAW_IP)) {
+			DBG("updated expected data format");
+			goto done;
+		}
+
+		DBG("Fail to set expected data format (not qmi_wwan?)");
+	}
+
+	/* Otherwise try to change modem data format */
+	if (new_llproto) {
+		struct qmi_param *param;
+
+		DBG("set WDA data format: %d\n", new_llproto);
+
+		param = qmi_param_new_uint32(QMI_WDA_LL_PROTOCOL, new_llproto);
+		if (!param)
+			goto done;
+
+		if (qmi_service_send(data->wda, QMI_WDA_SET_DATA_FORMAT, param,
+						set_data_format_cb, gc, NULL) > 0)
+			return;
+
+		qmi_param_free(param);
 	}
 
 done:
