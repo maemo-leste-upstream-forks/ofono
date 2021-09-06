@@ -95,6 +95,21 @@ static int class_to_call_type(int cls)
 	}
 }
 
+static GSList *find_dialing(GSList *calls)
+{
+	GSList *c;
+
+	c = g_slist_find_custom(calls, GINT_TO_POINTER(CALL_STATUS_DIALING),
+				at_util_call_compare_by_status);
+
+	if (c == NULL)
+		c = g_slist_find_custom(calls,
+					GINT_TO_POINTER(CALL_STATUS_ALERTING),
+					at_util_call_compare_by_status);
+
+	return c;
+}
+
 static struct ofono_call *create_call(struct ofono_voicecall *vc, int type,
 					int direction, int status,
 					const char *num, int num_type, int clip)
@@ -187,8 +202,9 @@ static void atd_cb(gboolean ok, GAtResult *result, gpointer user_data)
 	if (!ok)
 		goto out;
 
+	/* TODO: why dose this break everything? */
 	/* On a success, make sure to put all active calls on hold */
-	for (l = vd->calls; l; l = l->next) {
+	/*for (l = vd->calls; l; l = l->next) {
 		call = l->data;
 
 		if (call->status != CALL_STATUS_ACTIVE)
@@ -196,7 +212,7 @@ static void atd_cb(gboolean ok, GAtResult *result, gpointer user_data)
 
 		call->status = CALL_STATUS_HELD;
 		ofono_voicecall_notify(vc, call);
-	}
+	}*/
 
 	g_at_result_iter_init(&iter, result);
 
@@ -839,6 +855,7 @@ static void ciev_notify(GAtResult *result, gpointer user_data)
 	GAtResultIter iter;
 	struct ofono_call *call;
 	enum ofono_disconnect_reason reason;
+	GSList *dialing;
 
 	g_at_result_iter_init(&iter, result);
 
@@ -865,6 +882,19 @@ static void ciev_notify(GAtResult *result, gpointer user_data)
 		}
 		call->type = 0;
 		vd->flags = FLAG_NEED_CLIP;
+		break;
+	case 2: /* call becomes active */
+		dialing = find_dialing(vd->calls);
+		if (dialing)
+			call = dialing->data;
+		else if(vd->calls && vd->calls->data)
+			call = vd->calls->data;
+		else {
+			ofono_error("Got call status for non existant call");
+			break;
+		}
+		call->status = CALL_STATUS_ACTIVE;
+		ofono_voicecall_notify(vc, call);
 		break;
 	case 0: /* call ends */
 		call = vd->calls->data;
