@@ -38,8 +38,9 @@
 #include "signal.h"
 #include "queue.h"
 #include "log.h"
-#include "util.h"
+#include "useful.h"
 #include "main.h"
+#include "main-private.h"
 #include "private.h"
 #include "timeout.h"
 
@@ -224,17 +225,21 @@ int watch_clear(int fd)
 	return 0;
 }
 
-int watch_remove(int fd)
+int watch_remove(int fd, bool epoll_del)
 {
 	int err = watch_clear(fd);
 
 	if (err < 0)
 		return err;
 
+	if (!epoll_del)
+		goto done;
+
 	err = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
 	if (err < 0)
 		return -errno;
 
+done:
 	return err;
 }
 

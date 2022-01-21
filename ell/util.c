@@ -26,12 +26,12 @@
 
 #define _GNU_SOURCE
 #include <stdio.h>
-#include <ctype.h>
-#include <stdarg.h>
 #include <stdlib.h>
 #include <limits.h>
 
+#include "utf8.h"
 #include "util.h"
+#include "useful.h"
 #include "private.h"
 
 /**
@@ -342,6 +342,19 @@ LIB_EXPORT bool l_str_has_suffix(const char *str, const char *suffix)
 	return !strcmp(&str[len_diff], suffix);
 }
 
+/**
+ * l_streq0:
+ * @a: First operand
+ * @b: Second operand
+ *
+ * Returns: True if @a and @b are both NULL or both non-NULL and identical
+ * according to strcmp.  False otherwise.
+ */
+LIB_EXPORT bool l_streq0(const char *a, const char *b)
+{
+	return a == b || (a && b && !strcmp(a, b));
+}
+
 static char *hexstring_common(const unsigned char *buf, size_t len,
 				const char hexdigits[static 16])
 {
@@ -372,7 +385,7 @@ static char *hexstring_common(const unsigned char *buf, size_t len,
  * lower case hex digits a-f.  If you require upper case hex digits, use
  * @l_util_hexstring_upper
  **/
-LIB_EXPORT char *l_util_hexstring(const unsigned char *buf, size_t len)
+LIB_EXPORT char *l_util_hexstring(const void *buf, size_t len)
 {
 	static const char hexdigits[] = "0123456789abcdef";
 	return hexstring_common(buf, len, hexdigits);
@@ -387,7 +400,7 @@ LIB_EXPORT char *l_util_hexstring(const unsigned char *buf, size_t len)
  * upper case hex digits a-f.  If you require lower case hex digits, use
  * @l_util_hexstring
  **/
-LIB_EXPORT char *l_util_hexstring_upper(const unsigned char *buf, size_t len)
+LIB_EXPORT char *l_util_hexstring_upper(const void *buf, size_t len)
 {
 	static const char hexdigits[] = "0123456789ABCDEF";
 	return hexstring_common(buf, len, hexdigits);
@@ -413,9 +426,10 @@ LIB_EXPORT unsigned char *l_util_from_hexstring(const char *str,
 		return NULL;
 
 	for (i = 0; str[i]; i++) {
-		c = toupper(str[i]);
+		c = str[i];
 
-		if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F'))
+		if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') ||
+				(c >= 'a' && c <= 'f'))
 			continue;
 
 		return NULL;
@@ -431,21 +445,24 @@ LIB_EXPORT unsigned char *l_util_from_hexstring(const char *str,
 	buf = l_malloc(i >> 1);
 
 	for (i = 0, j = 0; i < len; i++, j++) {
-		c = toupper(str[i]);
+		c = str[i];
 
 		if (c >= '0' && c <= '9')
 			buf[j] = c - '0';
 		else if (c >= 'A' && c <= 'F')
 			buf[j] = 10 + c - 'A';
+		else if (c >= 'a' && c <= 'f')
+			buf[j] = 10 + c - 'a';
 
 		i += 1;
-
-		c = toupper(str[i]);
+		c = str[i];
 
 		if (c >= '0' && c <= '9')
 			buf[j] = buf[j] * 16 + c - '0';
 		else if (c >= 'A' && c <= 'F')
 			buf[j] = buf[j] * 16 + 10 + c - 'A';
+		else if (c >= 'a' && c <= 'f')
+			buf[j] = buf[j] * 16 + 10 + c - 'a';
 	}
 
 	if (out_len)
@@ -470,7 +487,7 @@ static void hexdump(const char dir, const unsigned char *buf, size_t len,
 		str[((i % 16) * 3) + 1] = ' ';
 		str[((i % 16) * 3) + 2] = hexdigits[buf[i] >> 4];
 		str[((i % 16) * 3) + 3] = hexdigits[buf[i] & 0xf];
-		str[(i % 16) + 51] = isprint(buf[i]) ? buf[i] : '.';
+		str[(i % 16) + 51] = l_ascii_isprint(buf[i]) ? buf[i] : '.';
 
 		if ((i + 1) % 16 == 0) {
 			str[49] = ' ';
@@ -528,6 +545,9 @@ LIB_EXPORT void l_util_hexdumpv(bool in, const struct iovec *iov,
 	size_t c;
 	const uint8_t *buf;
 
+	if (likely(!function))
+		return;
+
 	if (unlikely(!iov || !n_iov))
 		return;
 
@@ -549,7 +569,7 @@ LIB_EXPORT void l_util_hexdumpv(bool in, const struct iovec *iov,
 		str[((i % 16) * 3) + 1] = ' ';
 		str[((i % 16) * 3) + 2] = hexdigits[buf[c] >> 4];
 		str[((i % 16) * 3) + 3] = hexdigits[buf[c] & 0xf];
-		str[(i % 16) + 51] = isprint(buf[c]) ? buf[c] : '.';
+		str[(i % 16) + 51] = l_ascii_isprint(buf[c]) ? buf[c] : '.';
 
 		if ((i + 1) % 16 == 0) {
 			str[49] = ' ';
@@ -633,4 +653,35 @@ LIB_EXPORT const char *l_util_get_debugfs_path(void)
 		return NULL;
 
 	return path;
+}
+
+LIB_EXPORT bool l_memeq(const void *field, size_t size, uint8_t byte)
+{
+	const uint8_t *mem = field;
+	size_t i;
+
+	for (i = 0; i < size; i++)
+		if (mem[i] != byte)
+			return false;
+
+	return true;
+}
+
+__attribute__((noinline)) static int __secure_memeq(const void *field,
+						size_t size, uint8_t byte)
+{
+	unsigned int diff = 0;
+	size_t i;
+
+	for (i = 0; i < size; i++) {
+		diff |= ((uint8_t *) field)[i] ^ byte;
+		DO_NOT_OPTIMIZE(diff);
+	}
+
+	return diff;
+}
+
+LIB_EXPORT bool l_secure_memeq(const void *field, size_t size, uint8_t byte)
+{
+	return __secure_memeq(field, size, byte) == 0 ? true : false;
 }

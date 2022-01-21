@@ -24,9 +24,9 @@
 #include <config.h>
 #endif
 
-#include "util.h"
 #include "queue.h"
 #include "private.h"
+#include "useful.h"
 
 /**
  * SECTION:queue
@@ -271,8 +271,9 @@ LIB_EXPORT void *l_queue_peek_tail(struct l_queue *queue)
  * @user_data: user data given to compare function
  *
  * Inserts @data pointer at a position in the queue determined by the
- * compare @function.  @function should return > 0 if the @data (first
- * parameter) should be inserted after the current entry (second parameter).
+ * compare @function.  @function should return >= 0 if the @data (first
+ * parameter) should be inserted after the current entry (second parameter)
+ * and should return < 0 if before it.
  *
  * Returns: #true when data has been added and #false in case of failure
  **/
@@ -533,10 +534,10 @@ LIB_EXPORT void *l_queue_remove_if(struct l_queue *queue,
 			queue->entries--;
 
 			return data;
-		} else {
-			prev = entry;
-			entry = entry->next;
 		}
+
+		prev = entry;
+		entry = entry->next;
 	}
 
 	return NULL;
@@ -580,7 +581,7 @@ LIB_EXPORT bool l_queue_isempty(struct l_queue *queue)
  * Returns: A pointer to the head of the queue.
  **/
 LIB_EXPORT const struct l_queue_entry *l_queue_get_entries(
-							struct l_queue *queue)
+						const struct l_queue *queue)
 {
 	if (unlikely(!queue))
 		return NULL;

@@ -27,14 +27,16 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 #include <time.h>
 #include <limits.h>
 
-#include "util.h"
+#include "useful.h"
 #include "timeout.h"
+#include "main-private.h"
 #include "private.h"
 
 /**
@@ -94,10 +96,10 @@ static inline int timeout_set(int fd, unsigned int seconds, long nanoseconds)
 	return timerfd_settime(fd, 0, &itimer, NULL);
 }
 
-static bool convert_ms(unsigned long milliseconds, unsigned int *seconds,
+static bool convert_ms(uint64_t milliseconds, unsigned int *seconds,
 			long *nanoseconds)
 {
-	unsigned long big_seconds = milliseconds / 1000;
+	uint64_t big_seconds = milliseconds / 1000;
 
 	if (big_seconds > UINT_MAX)
 		return false;
@@ -204,7 +206,7 @@ LIB_EXPORT struct l_timeout *l_timeout_create(unsigned int seconds,
  * Returns: a newly allocated #l_timeout object. On failure, the function
  * returns NULL.
  **/
-LIB_EXPORT struct l_timeout *l_timeout_create_ms(unsigned long milliseconds,
+LIB_EXPORT struct l_timeout *l_timeout_create_ms(uint64_t milliseconds,
 			l_timeout_notify_cb_t callback,
 			void *user_data, l_timeout_destroy_cb_t destroy)
 {
@@ -250,7 +252,7 @@ LIB_EXPORT void l_timeout_modify(struct l_timeout *timeout,
  * Modify an existing @timeout and rearm it.
  **/
 LIB_EXPORT void l_timeout_modify_ms(struct l_timeout *timeout,
-					unsigned long milliseconds)
+					uint64_t milliseconds)
 {
 	if (unlikely(!timeout))
 		return;
@@ -281,7 +283,7 @@ LIB_EXPORT void l_timeout_remove(struct l_timeout *timeout)
 	if (unlikely(!timeout))
 		return;
 
-	watch_remove(timeout->fd);
+	watch_remove(timeout->fd, false);
 
 	l_free(timeout);
 }

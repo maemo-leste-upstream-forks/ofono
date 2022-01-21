@@ -26,9 +26,11 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <sys/epoll.h>
 
-#include "util.h"
+#include "useful.h"
+#include "main-private.h"
 #include "io.h"
 #include "private.h"
 
@@ -111,14 +113,6 @@ static void io_callback(int fd, uint32_t events, void *user_data)
 {
 	struct l_io *io = user_data;
 
-	if (unlikely(events & (EPOLLERR | EPOLLHUP))) {
-		l_util_debug(io->debug_handler, io->debug_data,
-						"disconnect event <%p>", io);
-		watch_remove(io->fd);
-		io_closed(io);
-		return;
-	}
-
 	if ((events & EPOLLIN) && io->read_handler) {
 		l_util_debug(io->debug_handler, io->debug_data,
 						"read event <%p>", io);
@@ -140,6 +134,17 @@ static void io_callback(int fd, uint32_t events, void *user_data)
 				return;
 			}
 		}
+	}
+
+	if (unlikely(events & (EPOLLERR | EPOLLHUP))) {
+		bool close_on_destroy = io->close_on_destroy;
+		int fd = io->fd;
+
+		l_util_debug(io->debug_handler, io->debug_data,
+						"disconnect event <%p>", io);
+		io_closed(io);
+		watch_remove(fd, !close_on_destroy);
+		return;
 	}
 
 	if ((events & EPOLLOUT) && io->write_handler) {
@@ -209,7 +214,7 @@ LIB_EXPORT void l_io_destroy(struct l_io *io)
 		return;
 
 	if (io->fd != -1)
-		watch_remove(io->fd);
+		watch_remove(io->fd, !io->close_on_destroy);
 
 	io_closed(io);
 

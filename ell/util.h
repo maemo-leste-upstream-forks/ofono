@@ -30,6 +30,7 @@
 #include <endian.h>
 #include <byteswap.h>
 #include <sys/uio.h>
+#include <ell/cleanup.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,19 +44,16 @@ _Pragma("GCC diagnostic ignored \"-Wcast-align\"")			\
 _Pragma("GCC diagnostic pop")						\
 	})
 
-#define likely(x)   __builtin_expect(!!(x), 1)
-#define unlikely(x) __builtin_expect(!!(x), 0)
-
 #define L_STRINGIFY(val) L_STRINGIFY_ARG(val)
 #define L_STRINGIFY_ARG(contents) #contents
 
 #define L_WARN_ON(condition) __extension__ ({				\
 		bool r = !!(condition);					\
-		if (unlikely(r))					\
+		if (r)							\
 			l_warn("WARNING: %s:%s() condition %s failed",	\
 				__FILE__, __func__,			\
 				#condition);				\
-		unlikely(r);						\
+		r;							\
 	})
 
 #define L_PTR_TO_UINT(p) ((unsigned int) ((uintptr_t) (p)))
@@ -229,9 +227,6 @@ static inline void l_put_be64(uint64_t val, void *ptr)
 	L_PUT_UNALIGNED(L_CPU_TO_BE64(val), (uint64_t *) ptr);
 }
 
-#define L_AUTO_CLEANUP_VAR(vartype,varname,destroy) \
-	vartype varname __attribute__((cleanup(destroy)))
-
 #define L_AUTO_FREE_VAR(vartype,varname) \
 	vartype varname __attribute__((cleanup(auto_free)))
 
@@ -241,6 +236,7 @@ void *l_malloc(size_t size) __attribute__ ((warn_unused_result, malloc));
 void *l_memdup(const void *mem, size_t size)
 			__attribute__ ((warn_unused_result, malloc));
 void l_free(void *ptr);
+DEFINE_CLEANUP_FUNC(l_free);
 
 void *l_realloc(void *mem, size_t size)
 			__attribute__ ((warn_unused_result, malloc));
@@ -251,13 +247,8 @@ static inline void auto_free(void *a)
 	l_free(*p);
 }
 
-static inline size_t minsize(size_t a, size_t b)
-{
-	if (a <= b)
-		return a;
-
-	return b;
-}
+#define l_steal_ptr(ptr) \
+	(__extension__ ({ typeof(ptr) _tmp = (ptr); (ptr) = NULL; _tmp; }))
 
 /**
  * l_new:
@@ -287,9 +278,10 @@ size_t l_strlcpy(char* dst, const char *src, size_t len);
 
 bool l_str_has_prefix(const char *str, const char *prefix);
 bool l_str_has_suffix(const char *str, const char *suffix);
+bool l_streq0(const char *a, const char *b);
 
-char *l_util_hexstring(const unsigned char *buf, size_t len);
-char *l_util_hexstring_upper(const unsigned char *buf, size_t len);
+char *l_util_hexstring(const void *buf, size_t len);
+char *l_util_hexstring_upper(const void *buf, size_t len);
 unsigned char *l_util_from_hexstring(const char *str, size_t *out_len);
 
 typedef void (*l_util_hexdump_func_t) (const char *str, void *user_data);
@@ -314,6 +306,124 @@ const char *l_util_get_debugfs_path(void);
        do __result = (long int) (expression);      \
        while (__result == -1L && errno == EINTR);  \
        __result; }))
+
+#define _L_IN_SET_CMP(val, type, cmp, ...) __extension__ ({		\
+		const type __v = (val);					\
+		const typeof(__v) __elems[] = {__VA_ARGS__};		\
+		unsigned int __i;					\
+		static const unsigned int __n = L_ARRAY_SIZE(__elems);	\
+		bool __r = false;					\
+		for (__i = 0; __i < __n && !__r; __i++)			\
+			__r = (cmp);					\
+		__r;							\
+	})
+
+/* Warning: evaluates all set elements even after @val has matched one */
+#define L_IN_SET(val, ...)	\
+	_L_IN_SET_CMP((val), __auto_type, __v == __elems[__i], ##__VA_ARGS__)
+
+#define L_IN_STRSET(val, ...)						\
+	_L_IN_SET_CMP((val), const char *, __v == __elems[__i] ||	\
+				(__v && __elems[__i] &&			\
+				 !strcmp(__v, __elems[__i])), ##__VA_ARGS__)
+
+/*
+ * Taken from https://github.com/chmike/cst_time_memcmp, adding a volatile to
+ * ensure the compiler does not try to optimize the constant time behavior.
+ * The code has been modified to add comments and project specific code
+ * styling.
+ * This specific piece of code is subject to the following copyright:
+ *
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2015 Christophe Meessen
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ * This function performs a secure memory comparison of two buffers of size
+ * bytes, representing an integer (byte order is big endian). It returns
+ * a negative, zero or positif value if a < b, a == b or a > b respectively.
+ */
+static inline int l_secure_memcmp(const void *a, const void *b,
+					size_t size)
+{
+	const volatile uint8_t *aa = a;
+	const volatile uint8_t *bb = b;
+	int res = 0, diff, mask;
+
+	/*
+	 * We will compare all bytes, starting with the less significant. When
+	 * we find a non-zero difference, we update the result accordingly.
+	 */
+	if (size > 0) {
+		/*
+		 * The following couple of lines can be summarized as a
+		 * constant time/memory access version of:
+		 * if (diff != 0) res = diff;
+		 *
+		 * From the previous operation, we know that diff is in
+		 * [-255, 255]
+		 *
+		 * The following figure show the possible value of mask, based
+		 * on different cases of diff:
+		 *
+		 * diff  |   diff-1   |   ~diff    | ((diff-1) & ~diff) |  mask
+		 * ------|------------|------------|--------------------|------
+		 *   < 0 | 0xFFFFFFXX | 0x000000YY |     0x000000ZZ     |   0
+		 *  == 0 | 0xFFFFFFFF | 0xFFFFFFFF |     0xFFFFFFFF     | 0xF..F
+		 *  > 0  | 0x000000XX | 0xFFFFFFYY |     0x000000ZZ     |   0
+		 *
+		 * Hence, the mask allows to keep res when diff == 0, and to
+		 * set res to diff otherwise.
+		*/
+		do {
+			--size;
+			diff = aa[size] - bb[size];
+			mask = (((diff - 1) & ~diff) >> 8);
+			res = (res & mask) | diff;
+		} while (size != 0);
+	}
+
+	return res;
+}
+
+bool l_memeq(const void *field, size_t size, uint8_t byte);
+bool l_secure_memeq(const void *field, size_t size, uint8_t byte);
+
+static inline bool l_memeqzero(const void *field, size_t size)
+{
+	return l_memeq(field, size, 0);
+}
+
+static inline void l_secure_select(bool select_left,
+				const void *left, const void *right,
+				void *out, size_t len)
+{
+	const uint8_t *l = left;
+	const uint8_t *r = right;
+	uint8_t *o = out;
+	uint8_t mask = -(!!select_left);
+	size_t i;
+
+	for (i = 0; i < len; i++)
+		o[i] = r[i] ^ ((l[i] ^ r[i]) & mask);
+}
 
 #ifdef __cplusplus
 }
