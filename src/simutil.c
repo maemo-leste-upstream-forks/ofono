@@ -35,6 +35,122 @@
 #include "smsutil.h"
 #include "missing.h"
 
+#if !GLIB_CHECK_VERSION(2,60,0)
+/* This is a wrapper to g_utf8_validate_len(), which is not included in Debian Buster or Devuan Beowulf */
+/* ******************************************************************************************************************************************************* */
+#define VALIDATE_BYTE_WRAPPER(mask, expect)                      \
+  G_STMT_START {                                         \
+    if (G_UNLIKELY((*(guchar *)p & (mask)) != (expect))) \
+      goto error;                                        \
+  } G_STMT_END
+
+static const gchar *
+fast_validate_len_wrapper (const char *str,
+		   gssize      max_len)
+
+{
+  const gchar *p;
+
+  g_assert (max_len >= 0);
+
+  for (p = str; ((p - str) < max_len) && *p; p++)
+    {
+      if (*(guchar *)p < 128)
+	/* done */;
+      else
+	{
+	  const gchar *last;
+
+	  last = p;
+	  if (*(guchar *)p < 0xe0) /* 110xxxxx */
+	    {
+	      if (G_UNLIKELY (max_len - (p - str) < 2))
+		goto error;
+
+	      if (G_UNLIKELY (*(guchar *)p < 0xc2))
+		goto error;
+	    }
+	  else
+	    {
+	      if (*(guchar *)p < 0xf0) /* 1110xxxx */
+		{
+		  if (G_UNLIKELY (max_len - (p - str) < 3))
+		    goto error;
+
+		  switch (*(guchar *)p++ & 0x0f)
+		    {
+		    case 0:
+		      VALIDATE_BYTE_WRAPPER(0xe0, 0xa0); /* 0xa0 ... 0xbf */
+		      break;
+		    case 0x0d:
+		      VALIDATE_BYTE_WRAPPER(0xe0, 0x80); /* 0x80 ... 0x9f */
+		      break;
+		    default:
+		      VALIDATE_BYTE_WRAPPER(0xc0, 0x80); /* 10xxxxxx */
+		    }
+		}
+	      else if (*(guchar *)p < 0xf5) /* 11110xxx excluding out-of-range */
+		{
+		  if (G_UNLIKELY (max_len - (p - str) < 4))
+		    goto error;
+
+		  switch (*(guchar *)p++ & 0x07)
+		    {
+		    case 0:
+		      VALIDATE_BYTE_WRAPPER(0xc0, 0x80); /* 10xxxxxx */
+		      if (G_UNLIKELY((*(guchar *)p & 0x30) == 0))
+			goto error;
+		      break;
+		    case 4:
+		      VALIDATE_BYTE_WRAPPER(0xf0, 0x80); /* 0x80 ... 0x8f */
+		      break;
+		    default:
+		      VALIDATE_BYTE_WRAPPER(0xc0, 0x80); /* 10xxxxxx */
+		    }
+		  p++;
+		  VALIDATE_BYTE_WRAPPER(0xc0, 0x80); /* 10xxxxxx */
+		}
+	      else
+		goto error;
+	    }
+
+	  p++;
+	  VALIDATE_BYTE_WRAPPER(0xc0, 0x80); /* 10xxxxxx */
+
+	  continue;
+
+	error:
+	  return last;
+	}
+    }
+
+  return p;
+}
+
+gboolean
+g_utf8_validate_len (const char   *str,
+                     gsize         max_len,
+                     const gchar **end)
+
+{
+  const gchar *p;
+
+  p = fast_validate_len_wrapper (str, max_len);
+
+  if (end)
+    *end = p;
+
+  if (p != str + max_len)
+    return FALSE;
+  else
+    return TRUE;
+}
+
+/* This is a wrapper to g_utf8_validate_len(), which is not included in Debian Buster or Devuan Beowulf */
+/* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */
+#endif
+
+
 struct sim_eons {
 	struct sim_eons_operator_info *pnn_list;
 	GSList *opl_list;
