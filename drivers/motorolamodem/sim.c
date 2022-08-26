@@ -77,7 +77,7 @@ static int motorola_sim_probe(struct ofono_sim *sim,
 	data->recv = g_at_chat_clone(param->recv);
 	ofono_sim_set_data(sim, data);
 	g_at_chat_register(data->recv, "~+MSIM=", receive_notify,
-						TRUE, sim, NULL);
+						FALSE, sim, NULL);
 
 	return 0;
 }

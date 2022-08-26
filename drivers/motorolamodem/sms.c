@@ -139,8 +139,8 @@ static int motorola_sms_probe(struct ofono_sms *sms, unsigned int vendor,
 	data->xmit = g_at_chat_clone(param->xmit);
 	data->vendor = vendor;
 	ofono_sms_set_data(sms, data);
-	g_at_chat_register(data->recv, "~+GCMT=", receive_notify, TRUE, sms, NULL);
-	g_at_chat_register(data->recv, "~+GSSR=", status_notify, TRUE, sms, NULL);
+	g_at_chat_register(data->recv, "~+GCMT=", receive_notify, FALSE, sms, NULL);
+	g_at_chat_register(data->recv, "~+GSSR=", status_notify, FALSE, sms, NULL);
 
 	return 0;
 }
