@@ -410,13 +410,11 @@ static int motmdm_open_dlc_devices(struct ofono_modem *modem)
 static void motmdm_close_dlc_devices(struct ofono_modem *modem)
 {
 	struct motmdm_data *data = ofono_modem_get_data(modem);
-	GAtChat *chat;
 	int i;
 
 	for (i = 0; i < NUM_DLC; i++) {
-		chat = data->chat[i];
-		g_at_chat_cancel_all(chat);
-		g_at_chat_unregister_all(chat);
+		g_at_chat_unref(data->chat[i]);
+		data->chat[i] = NULL;
 	}
 }
 

@@ -104,6 +104,7 @@ static void motorola_netreg_remove(struct ofono_netreg *netreg)
 	struct netreg_data *data = ofono_netreg_get_data(netreg);
 
 	ofono_netreg_set_data(netreg, NULL);
+	g_at_chat_unref(data->recv);
 	g_free(data);
 }
 
