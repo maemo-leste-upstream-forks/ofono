@@ -401,6 +401,11 @@ static int motmdm_open_dlc_devices(struct ofono_modem *modem)
 			break;
 		}
 
+		/* If we open in a row, all channels but 1 time out on SABM(P)
+		 * request, effectively remaining closed. Give modem a chance to
+		 * catch up.
+		 */
+		sleep(1);
 		found++;
 	}
 
