@@ -1,8 +1,8 @@
-ofono (1:1.34.3-1) unstable; urgency=medium
+ofono (1:1.34.4-1) unstable; urgency=medium
 
   * Revert previous fix, it has some problems
 
- -- Merlijn Wajer <merlijn@wizzup.org>  Tue, 30 Aug 2022 22:13:36 +0200
+ -- Merlijn Wajer <merlijn@wizzup.org>  Thu, 01 Sep 2022 16:43:55 +0200
 
 ofono (1:1.34.3-1) unstable; urgency=medium
 
