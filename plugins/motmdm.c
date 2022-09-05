@@ -153,6 +153,7 @@ static void shutdown_device(struct ofono_modem *modem)
 	DBG("%p", modem);
 
 	qmi_service_unref(data->wms);
+	data->wms = NULL;
 	qmi_service_unref(data->dms);
 	data->dms = NULL;
 
