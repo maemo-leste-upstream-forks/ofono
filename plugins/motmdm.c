@@ -542,6 +542,15 @@ error:
 	g_free(cbd);
 }
 
+static void motmdm_notify(GAtResult *result, gpointer user_data)
+{
+	struct ofono_modem *modem = user_data;
+
+	DBG("");
+
+	mot_qmi_trigger_events(modem);
+}
+
 /* Only some QMI features are usable, voicecall and sms are custom */
 static void motmdm_pre_sim(struct ofono_modem *modem)
 {
@@ -559,6 +568,11 @@ static void motmdm_pre_sim(struct ofono_modem *modem)
 
 	ofono_voicecall_create(modem, OFONO_VENDOR_MOTMDM, "motorolamodem",
 					data->chat[DLC_VOICE]);
+
+	g_at_chat_register(data->chat[DLC_VOICE], "~+CIEV=", motmdm_notify,
+			FALSE, modem, NULL);
+	g_at_chat_register(data->chat[DLC_VOICE], "~+WAKEUP", motmdm_notify,
+			FALSE, modem, NULL);
 }
 
 static void motmdm_post_sim(struct ofono_modem *modem)
