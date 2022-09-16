@@ -2120,7 +2120,7 @@ static bool service_create(struct qmi_device *device,
 
 	shared = g_try_new0(GList *, 1);
 	if (!shared)
-		return NULL;
+		return false;
 
 	data = g_try_new0(struct service_create_data, 1);
 	if (!data) {
@@ -2205,7 +2205,7 @@ bool qmi_service_create_shared(struct qmi_device *device, uint8_t type,
 
 		data = g_try_new0(struct service_create_shared_data, 1);
 		if (!data)
-			return NULL;
+			return false;
 
 		data->super.destroy = service_create_shared_data_free;
 		data->device = device;
