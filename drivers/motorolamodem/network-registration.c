@@ -50,8 +50,14 @@ static bool motorola_qmi_netreg_available(struct netreg_data *data)
 }
 
 /*
- * Signal strength in U1234~+RSSI=0,15,99,99,0,0,0 format, the second
- * number is a percentage.
+ * Signal strength in U1234~+RSSI=0,15,99,99,0,0,0 format, the second number
+ * is value representing the signal strength in unknown units. Tests show that
+ * converion from those units to dBm can be done with formula:
+ *
+ *     rssi = 2.05 * strength - 115
+ *
+ * It seems that 30 (-53 dBm) is the top limit of that value, or 100% strength
+ * in ofono terms.
  */
 static void receive_notify(GAtResult *result, gpointer user_data)
 {
@@ -74,6 +80,10 @@ static void receive_notify(GAtResult *result, gpointer user_data)
 
 	if (!g_at_result_iter_next_number(&iter, &strength))
 		return;
+
+	strength = (strength * 100) / 30;
+	if (strength > 100)
+		strength = 100;
 
 	DBG("strength: %i", strength);
 
