@@ -268,10 +268,10 @@ static void motorola_dial(struct ofono_voicecall *vc,
 
 	switch (clir) {
 	case OFONO_CLIR_OPTION_INVOCATION:
-		strcat(buf, ",0");
+		strcat(buf, ",1");
 		break;
 	case OFONO_CLIR_OPTION_SUPPRESSION:
-		strcat(buf, ",1");
+		strcat(buf, ",0");
 		break;
 	default:
 		break;
