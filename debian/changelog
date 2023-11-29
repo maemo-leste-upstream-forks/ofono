@@ -1,3 +1,9 @@
+ofono (1:1.34.9-1) unstable; urgency=medium
+
+  * simodem: parse extra details from REG_STATUS_IND
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Wed, 29 Nov 2023 10:23:14 +0100
+
 ofono (1:1.34.8-1) unstable; urgency=medium
 
   * motorolamodem: fix for clir suppression/invocation
