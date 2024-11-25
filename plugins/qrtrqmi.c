@@ -61,6 +61,7 @@ struct qrtrqmi_data {
 	struct rmnet_ifinfo rmnet_interfaces[MAX_CONTEXTS];
 	uint8_t n_premux;
 	int rmnet_id;
+	uint32_t set_powered_id;
 	bool have_voice : 1;
 	bool soc_premux : 1;
 };
@@ -206,6 +207,12 @@ static void qrtrqmi_remove(struct ofono_modem *modem)
 	}
 
 	qrtrqmi_deinit(data);
+
+	if (data->set_powered_id) {
+		l_netlink_cancel(l_rtnl_get(), data->set_powered_id);
+		data->set_powered_id = 0;
+	}
+
 	l_free(data);
 }
 
@@ -460,25 +467,75 @@ static void set_online_cb(struct qmi_result *result, void *user_data)
 		CALLBACK_WITH_SUCCESS(cb, cbd->data);
 }
 
-static void qrtrqmi_set_online(struct ofono_modem *modem, ofono_bool_t online,
-				ofono_modem_online_cb_t cb, void *user_data)
+static void powered_common_cb(int error, bool online, struct cb_data *cbd)
 {
-	struct qrtrqmi_data *data = ofono_modem_get_data(modem);
-	struct cb_data *cbd = cb_data_new(cb, user_data);
+	struct qrtrqmi_data *data = cbd->user;
 	struct qmi_param *param;
+	ofono_modem_online_cb_t cb = cbd->cb;
 
-	DBG("%p %s", modem, online ? "online" : "offline");
+	data->set_powered_id = 0;
+
+	if (error)
+		goto error;
 
 	param = qmi_param_new_uint8(QMI_DMS_PARAM_OPER_MODE,
 					online ? QMI_DMS_OPER_MODE_ONLINE :
 						QMI_DMS_OPER_MODE_LOW_POWER);
 
-	if (qmi_service_send(data->dms, QMI_DMS_SET_OPER_MODE, param,
-				set_online_cb, cbd, l_free) > 0)
+	if (qmi_service_send(data->dms, QMI_DMS_SET_OPER_MODE,
+					param, set_online_cb,
+					cb_data_ref(cbd), cb_data_unref) > 0)
 		return;
 
 	qmi_param_free(param);
-	l_free(cbd);
+	cb_data_unref(cbd);
+error:
+	CALLBACK_WITH_FAILURE(cb, cbd->data);
+}
+
+static void powered_up_cb(int error, uint16_t type, const void *msg,
+				uint32_t len, void *user_data)
+{
+	struct cb_data *cbd = user_data;
+
+	DBG("error: %d: %s", error, strerror(-error));
+	powered_common_cb(error, true, cbd);
+}
+
+static void powered_down_cb(int error, uint16_t type, const void *msg,
+				uint32_t len, void *user_data)
+{
+	struct cb_data *cbd = user_data;
+
+	DBG("error: %d: %s", error, strerror(-error));
+	powered_common_cb(error, false, cbd);
+}
+
+static void qrtrqmi_set_online(struct ofono_modem *modem, ofono_bool_t online,
+				ofono_modem_online_cb_t cb, void *user_data)
+{
+	struct qrtrqmi_data *data = ofono_modem_get_data(modem);
+	struct l_netlink *rtnl = l_rtnl_get();
+	struct cb_data *cbd = cb_data_new(cb, user_data);
+	l_netlink_command_func_t powered_cb;
+
+	DBG("%p %s", modem, online ? "online" : "offline");
+
+	cbd->user = data;
+
+	if (online)
+		powered_cb = powered_up_cb;
+	else
+		powered_cb = powered_down_cb;
+
+	data->set_powered_id = l_rtnl_set_powered(rtnl, data->main_net_ifindex,
+							online, powered_cb,
+							cbd, cb_data_unref);
+	if (data->set_powered_id)
+		return;
+
+	cb_data_unref(cbd);
+	CALLBACK_WITH_FAILURE(cb, user_data);
 }
 
 static void qrtrqmi_pre_sim(struct ofono_modem *modem)
