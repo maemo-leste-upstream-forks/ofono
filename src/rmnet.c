@@ -25,6 +25,7 @@
 
 #define RMNET_TYPE "rmnet"
 #define MAX_MUX_IDS 254U
+#define DEFAULT_MTU 1400U
 
 struct rmnet_request {
 	uint32_t parent_ifindex;
@@ -195,18 +196,15 @@ next_request:
 		rmnet_start_next_request();
 }
 
-static void rmnet_new_link_cb(int error, uint16_t type, const void *data,
+static void rmnet_set_mtu_cb(int error, uint16_t type, const void *data,
 					uint32_t len, void *user_data)
 {
 	struct rmnet_request *req = l_queue_peek_head(request_q);
 
-	DBG("NEWLINK %u (%u/%u) complete, error: %d",
-		req->netlink_id, req->current + 1, req->n_interfaces, error);
+	DBG("%u (%u/%u) complete, error: %d",
+		req->netlink_id, req->current, req->n_interfaces, error);
 
 	req->netlink_id = 0;
-
-	if (!error)
-		req->current += 1;
 
 	if (error || req->canceled) {
 		__rmnet_cancel_request();
@@ -227,6 +225,48 @@ static void rmnet_new_link_cb(int error, uint16_t type, const void *data,
 next_request:
 	if (l_queue_length(request_q) > 0)
 		rmnet_start_next_request();
+}
+
+static void rmnet_new_link_cb(int error, uint16_t type, const void *data,
+					uint32_t len, void *user_data)
+{
+	struct rmnet_request *req = l_queue_peek_head(request_q);
+	uint32_t ifindex = req->infos[req->current].ifindex;
+
+	DBG("NEWLINK %u (%u/%u) complete, error: %d",
+		req->netlink_id, req->current + 1, req->n_interfaces, error);
+
+	req->netlink_id = 0;
+
+	if (!error)
+		req->current += 1;
+
+	if (error || req->canceled)
+		goto error;
+
+	/*
+	 * Unfortunately the kernel does not take IFLA_MTU into account
+	 * when creating new RMNet links, so this must be done as a separate
+	 * step.  Hopefully this is fixed one day
+	 */
+	error = -EIO;
+	req->netlink_id = l_rtnl_link_set_mtu(rtnl, ifindex, DEFAULT_MTU,
+						rmnet_set_mtu_cb, NULL, NULL);
+	if (req->netlink_id) {
+		DBG("Set MTU: interface: %u/%u, request: %u",
+			req->current, req->n_interfaces, req->netlink_id);
+		return;
+	}
+error:
+	__rmnet_cancel_request();
+	req->n_interfaces = 0;
+
+	if (req->new_cb)
+		req->new_cb(error, req->n_interfaces,
+				req->n_interfaces ? req->infos : NULL,
+				req->user_data);
+
+	rmnet_request_free(req);
 }
 
 static void rmnet_start_next_request(void)
@@ -429,6 +469,7 @@ static int rmnet_parse_link(const void *data, uint32_t len,
 	bool have_linkinfo = false;
 	const char *ifname = NULL;
 	uint16_t ifnamelen = 0;
+	uint32_t mtu = 0;
 	uint16_t rta_type;
 	uint16_t rta_len;
 	const void *rta_data;
@@ -450,10 +491,16 @@ static int rmnet_parse_link(const void *data, uint32_t len,
 
 			have_linkinfo = true;
 			break;
+		case IFLA_MTU:
+			if (rta_len != sizeof(uint32_t))
+				return -EBADMSG;
+
+			mtu = l_get_u32(rta_data);
+			break;
 		}
 	}
 
-	if (!have_linkinfo || !ifname || !ifnamelen)
+	if (!have_linkinfo || !ifname || !ifnamelen || !mtu)
 		return -ENOENT;
 
 	r = rmnet_parse_info_data(&linkinfo, out_mux_id);
@@ -530,14 +577,23 @@ static void update_new_link_ifindex(uint16_t mux_id,
 {
 	struct rmnet_request *req;
 	struct rmnet_ifinfo *info;
+	unsigned int i;
 
 	req = l_queue_peek_head(request_q);
 	if (!req || req->request_type != RTM_NEWLINK)
 		return;
 
-	info = req->infos + req->current;
-	if (info->mux_id == mux_id && !strcmp(info->ifname, ifname))
+	for (i = 0; i < req->n_interfaces; i++) {
+		info = req->infos + i;
+
+		if (info->mux_id != mux_id)
+			continue;
+
+		if (strcmp(info->ifname, ifname))
+			continue;
+
 		info->ifindex = ifindex;
+	}
 }
 
 static void rmnet_link_notification(uint16_t type, const void *data,
