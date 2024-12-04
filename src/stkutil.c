@@ -1026,7 +1026,7 @@ static bool parse_dataobj_datetime_timezone(
 {
 	struct sms_scts *scts = user;
 	const uint8_t *data;
-	int offset = 0;
+	size_t offset = 0;
 
 	if (comprehension_tlv_iter_get_length(iter) != 7)
 		return false;
@@ -4690,7 +4690,7 @@ static bool build_dataobj_datetime_timezone(struct stk_tlv_builder *tlv,
 {
 	const struct sms_scts *scts = data;
 	uint8_t value[7];
-	int offset = 0;
+	size_t offset = 0;
 	uint8_t tag = STK_DATA_OBJECT_TYPE_DATETIME_TIMEZONE;
 
 	if (scts->month == 0 && scts->day == 0)

@@ -413,13 +413,13 @@ static inline unsigned char bit_field(unsigned char oct, int start, int num)
 	return (oct >> start) & mask;
 }
 
-void extract_bcd_number(const unsigned char *buf, int len, char *out);
+void extract_bcd_number(const unsigned char *buf, size_t len, char *out);
 void encode_bcd_number(const char *number, unsigned char *out);
 
-gboolean sms_decode(const unsigned char *pdu, int len, gboolean outgoing,
-			int tpdu_len, struct sms *out);
+gboolean sms_decode(const unsigned char *pdu, size_t len, gboolean outgoing,
+			size_t tpdu_len, struct sms *out);
 
-gboolean sms_decode_unpacked_stk_pdu(const unsigned char *pdu, int len,
+gboolean sms_decode_unpacked_stk_pdu(const unsigned char *pdu, size_t len,
 					struct sms *out);
 
 gboolean sms_encode(const struct sms *in, int *len, int *tpdu_len,
@@ -431,22 +431,22 @@ gboolean sms_encode(const struct sms *in, int *len, int *tpdu_len,
  */
 #define DECLARE_SMS_ADDR_STR(a) char a[25]
 
-gboolean sms_decode_address_field(const unsigned char *pdu, int len,
-					int *offset, gboolean sc,
+gboolean sms_decode_address_field(const unsigned char *pdu, size_t len,
+					size_t *offset, gboolean sc,
 					struct sms_address *out);
 
 gboolean sms_encode_address_field(const struct sms_address *in, gboolean sc,
-					unsigned char *pdu, int *offset);
+					unsigned char *pdu, size_t *offset);
 
 guint8 sms_decode_semi_octet(guint8 in);
 
-gboolean sms_decode_scts(const unsigned char *pdu, int len,
-				int *offset, struct sms_scts *out);
+gboolean sms_decode_scts(const unsigned char *pdu, size_t len,
+				size_t *offset, struct sms_scts *out);
 
 gboolean sms_encode_scts(const struct sms_scts *in, unsigned char *pdu,
-				int *offset);
+				size_t *offset);
 
-int sms_udl_in_bytes(guint8 ud_len, guint8 dcs);
+size_t sms_udl_in_bytes(guint8 ud_len, guint8 dcs);
 
 time_t sms_scts_to_time(const struct sms_scts *scts, struct tm *remote);
 

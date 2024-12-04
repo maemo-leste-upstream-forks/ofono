@@ -782,9 +782,11 @@ static void handle_special_sms_iei(struct ofono_message_waiting *mw,
 
 static void handle_enhanced_voicemail_iei(struct ofono_message_waiting *mw,
 						const guint8 *iei,
-						gboolean *discard, int length)
+						gboolean *discard,
+						size_t length)
 {
-	int profile, n;
+	int profile;
+	size_t n;
 	gboolean set;
 	struct sms_address mailbox_address;
 

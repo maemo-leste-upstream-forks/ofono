@@ -59,11 +59,11 @@ static GSList *sms_assembly_add_fragment_backup(struct sms_assembly *assembly,
  * This function uses the meanings of digits 10..15 according to the rules
  * defined in 23.040 Section 9.1.2.3 and 24.008 Table 10.5.118
  */
-void extract_bcd_number(const unsigned char *buf, int len, char *out)
+void extract_bcd_number(const unsigned char *buf, size_t len, char *out)
 {
 	static const char digit_lut[] = "0123456789*#abc\0";
 	unsigned char oct;
-	int i;
+	size_t i;
 
 	for (i = 0; i < len; i++) {
 		oct = buf[i];
@@ -246,7 +246,7 @@ gboolean sms_mwi_dcs_decode(guint8 dcs, enum sms_mwi_type *type,
 	return TRUE;
 }
 
-int sms_udl_in_bytes(guint8 ud_len, guint8 dcs)
+size_t sms_udl_in_bytes(guint8 ud_len, guint8 dcs)
 {
 	int len_7bit = (ud_len + 1) * 7 / 8;
 	int len_8bit = ud_len;
@@ -297,8 +297,8 @@ int sms_udl_in_bytes(guint8 ud_len, guint8 dcs)
 	return 0;
 }
 
-static inline gboolean next_octet(const unsigned char *pdu, int len,
-					int *offset, unsigned char *oct)
+static inline gboolean next_octet(const unsigned char *pdu, size_t len,
+					size_t *offset, unsigned char *oct)
 {
 	if (len == *offset)
 		return FALSE;
@@ -310,7 +310,7 @@ static inline gboolean next_octet(const unsigned char *pdu, int len,
 	return TRUE;
 }
 
-static inline gboolean set_octet(unsigned char *pdu, int *offset,
+static inline gboolean set_octet(unsigned char *pdu, size_t *offset,
 					unsigned char oct)
 {
 	pdu[*offset] = oct;
@@ -320,7 +320,7 @@ static inline gboolean set_octet(unsigned char *pdu, int *offset,
 }
 
 gboolean sms_encode_scts(const struct sms_scts *in, unsigned char *pdu,
-				int *offset)
+				size_t *offset)
 {
 	guint timezone;
 
@@ -378,8 +378,8 @@ guint8 sms_decode_semi_octet(guint8 in)
 	return (in & 0x0f) * 10 + (in >> 4);
 }
 
-gboolean sms_decode_scts(const unsigned char *pdu, int len,
-				int *offset, struct sms_scts *out)
+gboolean sms_decode_scts(const unsigned char *pdu, size_t len,
+				size_t *offset, struct sms_scts *out)
 {
 	unsigned char oct = 0;
 
@@ -444,8 +444,8 @@ gboolean sms_decode_scts(const unsigned char *pdu, int len,
 	return TRUE;
 }
 
-static gboolean decode_validity_period(const unsigned char *pdu, int len,
-					int *offset,
+static gboolean decode_validity_period(const unsigned char *pdu, size_t len,
+					size_t *offset,
 					enum sms_validity_period_format vpf,
 					struct sms_validity_period *vp)
 {
@@ -484,7 +484,7 @@ static gboolean decode_validity_period(const unsigned char *pdu, int len,
 
 static gboolean encode_validity_period(const struct sms_validity_period *vp,
 					enum sms_validity_period_format vpf,
-					unsigned char *pdu, int *offset)
+					unsigned char *pdu, size_t *offset)
 {
 	switch (vpf) {
 	case SMS_VALIDITY_PERIOD_FORMAT_ABSENT:
@@ -509,7 +509,7 @@ static gboolean encode_validity_period(const struct sms_validity_period *vp,
 }
 
 gboolean sms_encode_address_field(const struct sms_address *in, gboolean sc,
-					unsigned char *pdu, int *offset)
+					unsigned char *pdu, size_t *offset)
 {
 	const char *addr = (const char *)&in->address;
 	size_t len = strlen(addr);
@@ -601,13 +601,13 @@ out:
 	return TRUE;
 }
 
-gboolean sms_decode_address_field(const unsigned char *pdu, int len,
-					int *offset, gboolean sc,
+gboolean sms_decode_address_field(const unsigned char *pdu, size_t len,
+					size_t *offset, gboolean sc,
 					struct sms_address *out)
 {
 	unsigned char addr_len;
 	unsigned char addr_type;
-	int byte_len;
+	size_t byte_len;
 
 	if (!next_octet(pdu, len, offset, &addr_len))
 		return FALSE;
@@ -694,9 +694,9 @@ gboolean sms_decode_address_field(const unsigned char *pdu, int len,
 }
 
 static gboolean encode_deliver(const struct sms_deliver *in, unsigned char *pdu,
-				int *offset)
+				size_t *offset)
 {
-	int ud_oct_len;
+	size_t ud_oct_len;
 	unsigned char oct;
 
 	oct = 0;
@@ -735,11 +735,11 @@ static gboolean encode_deliver(const struct sms_deliver *in, unsigned char *pdu,
 	return TRUE;
 }
 
-static gboolean decode_deliver(const unsigned char *pdu, int len,
+static gboolean decode_deliver(const unsigned char *pdu, size_t len,
 				struct sms *out)
 {
-	int offset = 0;
-	int expected;
+	size_t offset = 0;
+	size_t expected;
 	unsigned char octet;
 
 	out->type = SMS_TYPE_DELIVER;
@@ -770,7 +770,7 @@ static gboolean decode_deliver(const unsigned char *pdu, int len,
 
 	expected = sms_udl_in_bytes(out->deliver.udl, out->deliver.dcs);
 
-	if (expected < 0 || expected > (int)sizeof(out->deliver.ud))
+	if (expected > sizeof(out->deliver.ud))
 		return FALSE;
 
 	if ((len - offset) < expected)
@@ -782,7 +782,8 @@ static gboolean decode_deliver(const unsigned char *pdu, int len,
 }
 
 static gboolean encode_submit_ack_report(const struct sms_submit_ack_report *in,
-						unsigned char *pdu, int *offset)
+						unsigned char *pdu,
+						size_t *offset)
 {
 	unsigned char oct;
 
@@ -816,7 +817,8 @@ static gboolean encode_submit_ack_report(const struct sms_submit_ack_report *in,
 }
 
 static gboolean encode_submit_err_report(const struct sms_submit_err_report *in,
-						unsigned char *pdu, int *offset)
+						unsigned char *pdu,
+						size_t *offset)
 {
 	unsigned char oct;
 
@@ -851,10 +853,10 @@ static gboolean encode_submit_err_report(const struct sms_submit_err_report *in,
 	return TRUE;
 }
 
-static gboolean decode_submit_report(const unsigned char *pdu, int len,
+static gboolean decode_submit_report(const unsigned char *pdu, size_t len,
 					struct sms *out)
 {
-	int offset = 0;
+	size_t offset = 0;
 	unsigned char octet;
 	gboolean udhi;
 	guint8 uninitialized_var(fcs);
@@ -924,7 +926,7 @@ static gboolean decode_submit_report(const unsigned char *pdu, int len,
 	}
 
 	if (pi & 0x04) {
-		int expected;
+		size_t expected;
 
 		if (!next_octet(pdu, len, &offset, &udl))
 			return FALSE;
@@ -935,14 +937,14 @@ static gboolean decode_submit_report(const unsigned char *pdu, int len,
 			return FALSE;
 
 		if (out->type == SMS_TYPE_SUBMIT_REPORT_ERROR) {
-			if (expected > (int) sizeof(out->submit_err_report.ud))
+			if (expected > sizeof(out->submit_err_report.ud))
 				return FALSE;
 
 			out->submit_err_report.udl = udl;
 			memcpy(out->submit_err_report.ud,
 					pdu + offset, expected);
 		} else {
-			if (expected > (int) sizeof(out->submit_ack_report.ud))
+			if (expected > sizeof(out->submit_ack_report.ud))
 				return FALSE;
 
 			out->submit_ack_report.udl = udl;
@@ -955,7 +957,7 @@ static gboolean decode_submit_report(const unsigned char *pdu, int len,
 }
 
 static gboolean encode_status_report(const struct sms_status_report *in,
-					unsigned char *pdu, int *offset)
+					unsigned char *pdu, size_t *offset)
 {
 	unsigned char octet;
 
@@ -1008,10 +1010,10 @@ static gboolean encode_status_report(const struct sms_status_report *in,
 	return TRUE;
 }
 
-static gboolean decode_status_report(const unsigned char *pdu, int len,
+static gboolean decode_status_report(const unsigned char *pdu, size_t len,
 					struct sms *out)
 {
-	int offset = 0;
+	size_t offset = 0;
 	unsigned char octet;
 
 	out->type = SMS_TYPE_STATUS_REPORT;
@@ -1066,7 +1068,7 @@ static gboolean decode_status_report(const unsigned char *pdu, int len,
 	}
 
 	if (out->status_report.pi & 0x04) {
-		int expected;
+		size_t expected;
 
 		if (!next_octet(pdu, len, &offset, &out->status_report.udl))
 			return FALSE;
@@ -1077,7 +1079,7 @@ static gboolean decode_status_report(const unsigned char *pdu, int len,
 		if ((len - offset) < expected)
 			return FALSE;
 
-		if (expected > (int)sizeof(out->status_report.ud))
+		if (expected > sizeof(out->status_report.ud))
 			return FALSE;
 
 		memcpy(out->status_report.ud, pdu + offset, expected);
@@ -1088,7 +1090,7 @@ static gboolean decode_status_report(const unsigned char *pdu, int len,
 
 static gboolean encode_deliver_ack_report(const struct sms_deliver_ack_report *in,
 						unsigned char *pdu,
-						int *offset)
+						size_t *offset)
 {
 	unsigned char oct;
 
@@ -1108,7 +1110,7 @@ static gboolean encode_deliver_ack_report(const struct sms_deliver_ack_report *i
 		set_octet(pdu, offset, in->dcs);
 
 	if (in->pi & 0x4) {
-		int ud_oct_len = sms_udl_in_bytes(in->udl, in->dcs);
+		size_t ud_oct_len = sms_udl_in_bytes(in->udl, in->dcs);
 
 		set_octet(pdu, offset, in->udl);
 		memcpy(pdu + *offset, in->ud, ud_oct_len);
@@ -1120,7 +1122,7 @@ static gboolean encode_deliver_ack_report(const struct sms_deliver_ack_report *i
 
 static gboolean encode_deliver_err_report(const struct sms_deliver_err_report *in,
 						unsigned char *pdu,
-						int *offset)
+						size_t *offset)
 {
 	unsigned char oct;
 
@@ -1155,7 +1157,7 @@ static gboolean encode_deliver_err_report(const struct sms_deliver_err_report *i
 static gboolean decode_deliver_report(const unsigned char *pdu, int len,
 					struct sms *out)
 {
-	int offset = 0;
+	size_t offset = 0;
 	unsigned char octet;
 	gboolean udhi;
 	guint8 uninitialized_var(fcs);
@@ -1218,7 +1220,7 @@ static gboolean decode_deliver_report(const unsigned char *pdu, int len,
 	}
 
 	if (pi & 0x04) {
-		int expected;
+		size_t expected;
 
 		if (!next_octet(pdu, len, &offset, &udl))
 			return FALSE;
@@ -1229,14 +1231,14 @@ static gboolean decode_deliver_report(const unsigned char *pdu, int len,
 			return FALSE;
 
 		if (out->type == SMS_TYPE_DELIVER_REPORT_ERROR) {
-			if (expected > (int) sizeof(out->deliver_err_report.ud))
+			if (expected > sizeof(out->deliver_err_report.ud))
 				return FALSE;
 
 			out->deliver_err_report.udl = udl;
 			memcpy(out->deliver_err_report.ud,
 					pdu + offset, expected);
 		} else {
-			if (expected > (int) sizeof(out->deliver_ack_report.ud))
+			if (expected > sizeof(out->deliver_ack_report.ud))
 				return FALSE;
 
 			out->deliver_ack_report.udl = udl;
@@ -1249,10 +1251,10 @@ static gboolean decode_deliver_report(const unsigned char *pdu, int len,
 }
 
 static gboolean encode_submit(const struct sms_submit *in,
-					unsigned char *pdu, int *offset)
+					unsigned char *pdu, size_t *offset)
 {
 	unsigned char octet;
-	int ud_oct_len;
+	size_t ud_oct_len;
 
 	/* SMS Submit */
 	octet = 0x1;
@@ -1296,11 +1298,11 @@ static gboolean encode_submit(const struct sms_submit *in,
 	return TRUE;
 }
 
-gboolean sms_decode_unpacked_stk_pdu(const unsigned char *pdu, int len,
+gboolean sms_decode_unpacked_stk_pdu(const unsigned char *pdu, size_t len,
 					struct sms *out)
 {
 	unsigned char octet;
-	int offset = 0;
+	size_t offset = 0;
 
 	if (!next_octet(pdu, len, &offset, &octet))
 		return FALSE;
@@ -1348,12 +1350,12 @@ gboolean sms_decode_unpacked_stk_pdu(const unsigned char *pdu, int len,
 	return TRUE;
 }
 
-static gboolean decode_submit(const unsigned char *pdu, int len,
+static gboolean decode_submit(const unsigned char *pdu, size_t len,
 					struct sms *out)
 {
 	unsigned char octet;
-	int offset = 0;
-	int expected;
+	size_t offset = 0;
+	size_t expected;
 
 	out->type = SMS_TYPE_SUBMIT;
 
@@ -1391,7 +1393,7 @@ static gboolean decode_submit(const unsigned char *pdu, int len,
 	if ((len - offset) < expected)
 		return FALSE;
 
-	if (expected > (int) sizeof(out->submit.ud))
+	if (expected > sizeof(out->submit.ud))
 		return FALSE;
 
 	memcpy(out->submit.ud, pdu + offset, expected);
@@ -1400,7 +1402,7 @@ static gboolean decode_submit(const unsigned char *pdu, int len,
 }
 
 static gboolean encode_command(const struct sms_command *in,
-					unsigned char *pdu, int *offset)
+					unsigned char *pdu, size_t *offset)
 {
 	unsigned char octet;
 
@@ -1435,11 +1437,11 @@ static gboolean encode_command(const struct sms_command *in,
 	return TRUE;
 }
 
-static gboolean decode_command(const unsigned char *pdu, int len,
+static gboolean decode_command(const unsigned char *pdu, size_t len,
 					struct sms *out)
 {
 	unsigned char octet;
-	int offset = 0;
+	size_t offset = 0;
 
 	out->type = SMS_TYPE_COMMAND;
 
@@ -1485,8 +1487,8 @@ static gboolean decode_command(const unsigned char *pdu, int len,
 gboolean sms_encode(const struct sms *in, int *len, int *tpdu_len,
 			unsigned char *pdu)
 {
-	int offset = 0;
-	int tpdu_start;
+	size_t offset = 0;
+	size_t tpdu_start;
 
 	if (in->type == SMS_TYPE_DELIVER || in->type == SMS_TYPE_SUBMIT ||
 			in->type == SMS_TYPE_COMMAND ||
@@ -1546,11 +1548,11 @@ gboolean sms_encode(const struct sms *in, int *len, int *tpdu_len,
 	return TRUE;
 }
 
-gboolean sms_decode(const unsigned char *pdu, int len, gboolean outgoing,
-			int tpdu_len, struct sms *out)
+gboolean sms_decode(const unsigned char *pdu, size_t len, gboolean outgoing,
+			size_t tpdu_len, struct sms *out)
 {
 	unsigned char type;
-	int offset = 0;
+	size_t offset = 0;
 
 	if (out == NULL)
 		return FALSE;
@@ -2394,7 +2396,7 @@ static gboolean sms_assembly_extract_address(const char *straddr,
 {
 	unsigned char pdu[12];
 	long len;
-	int offset = 0;
+	size_t offset = 0;
 
 	if (decode_hex_own_buf(straddr, -1, &len, 0, pdu) == NULL)
 		return FALSE;
@@ -2405,7 +2407,7 @@ static gboolean sms_assembly_extract_address(const char *straddr,
 gboolean sms_address_to_hex_string(const struct sms_address *in, char *straddr)
 {
 	unsigned char pdu[12];
-	int offset = 0;
+	size_t offset = 0;
 
 	if (sms_encode_address_field(in, FALSE, pdu, &offset) == FALSE)
 		return FALSE;
