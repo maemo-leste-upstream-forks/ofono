@@ -578,7 +578,6 @@ builtin_sources += plugins/telit.c
 builtin_sources += plugins/quectel.c
 builtin_sources += plugins/ublox.c
 builtin_sources += plugins/xmm7xxx.c
-builtin_sources += plugins/droid.c
 
 builtin_modules += stemgr
 builtin_sources += plugins/stemgr.c
