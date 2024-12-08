@@ -870,7 +870,9 @@ static gboolean setup_telitqmi(struct modem_info *modem)
 
 static gboolean setup_droid(struct modem_info *modem)
 {
-	const char *at = NULL;
+	const struct device_info *qmi = NULL;
+	const struct device_info *net = NULL;
+
 	GSList *list;
 
 	DBG("%s", modem->syspath);
@@ -878,21 +880,29 @@ static gboolean setup_droid(struct modem_info *modem)
 	for (list = modem->devices; list; list = list->next) {
 		struct device_info *info = list->data;
 		const char *subsystem =
-			udev_device_get_subsystem(info->udev_device);
+				udev_device_get_subsystem(info->udev_device);
+		DBG("%s %s %s %s %s %s", info->devnode, info->interface,
+						info->number, info->label,
+						info->sysattr, subsystem);
 
-		DBG("%s %s %s %s %s", info->devnode, info->interface,
-				info->number, info->label, subsystem);
-
-		if (g_strcmp0(info->interface, "255/255/255") == 0 &&
-				g_strcmp0(info->number, "04") == 0) {
-			at = info->devnode;
+		if (g_strcmp0(subsystem, "usbmisc") == 0) {
+			if (g_strcmp0(info->number, "05") == 0)
+				qmi = info;
+		} else if (g_strcmp0(subsystem, "net") == 0) {
+			if (g_strcmp0(info->number, "05") == 0)
+				net = info;
 		}
 	}
 
-	if (at == NULL)
+	if (qmi == NULL || net == NULL)
 		return FALSE;
 
-	ofono_modem_set_string(modem->modem, "Device", at);
+	DBG("qmi=%s net=%s", qmi->devnode, get_ifname(net));
+
+
+	if (setup_qmi_qmux(modem, qmi, net) < 0)
+		return FALSE;
+
 	ofono_modem_set_driver(modem->modem, "droid");
 
 	return TRUE;
