@@ -96,10 +96,10 @@ static bool extract_ss_info(struct qmi_result *result, int *status,
 
 	*tech = -1;
 
-	for (i = 0; i < ss->radio_if_count; i++) {
-		DBG("radio in use %d", ss->radio_if[i]);
+	for (i = ss->radio_if_count; i && *tech == -1; i--) {
+		DBG("radio in use %d", ss->radio_if[i - 1]);
 
-		*tech = qmi_nas_rat_to_tech(ss->radio_if[i]);
+		*tech = qmi_nas_rat_to_tech(ss->radio_if[i - 1]);
 	}
 
 	*roaming = ROAMING_STATUS_NO_CHANGE;
