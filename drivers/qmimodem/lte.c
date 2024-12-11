@@ -172,7 +172,7 @@ static int qmimodem_lte_probe(struct ofono_lte *lte,
 		uint8_t family;
 	} __attribute((packed)) p = {
 		.type = QMI_WDS_PROFILE_TYPE_3GPP,
-		.family = QMI_WDS_PROFILE_FAMILY_EMBEDDED,
+		.family = QMI_WDS_PROFILE_FAMILY_TETHERED,
 	};
 	struct lte_data *ldd;
 

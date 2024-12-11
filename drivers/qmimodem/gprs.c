@@ -418,7 +418,7 @@ static int qmi_gprs_probev(struct ofono_gprs *gprs,
 		uint8_t family;
 	} __attribute((packed)) p = {
 		.type = QMI_WDS_PROFILE_TYPE_3GPP,
-		.family = QMI_WDS_PROFILE_FAMILY_EMBEDDED,
+		.family = QMI_WDS_PROFILE_FAMILY_TETHERED,
 	};
 	struct qmi_param *param = qmi_param_new();
 
