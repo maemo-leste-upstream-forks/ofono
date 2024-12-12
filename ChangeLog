@@ -1,3 +1,10 @@
+ver 2.14:
+	Fix issue with STK and buffer length checks.
+	Fix issue with SMS and buffer length checks.
+	Fix issue with QMI and handling RAT detection.
+	Fix issue with QMI and handling call forwarding.
+	Add support for handling MHI network interfaces.
+
 ver 2.13:
 	Add support for handling QMI PIN and Lock methods.
 	Add support for handling QMI WWAN interfaces.
