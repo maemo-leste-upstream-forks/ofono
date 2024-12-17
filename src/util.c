@@ -3181,6 +3181,9 @@ unsigned char *decode_hex_own_buf(const char *in, long len, long *items_written,
 	char c;
 	unsigned char b;
 
+	if (!buf)
+		return NULL;
+
 	if (len < 0)
 		len = strlen(in);
 
