@@ -27,6 +27,16 @@
 #define MAX_MUX_IDS 254U
 #define DEFAULT_MTU 1400U
 
+/*
+ * These were added in 5.14 so define them here if the toolchain's kernel headers are old.
+ */
+#ifndef RMNET_FLAGS_INGRESS_MAP_CKSUMV5
+#define RMNET_FLAGS_INGRESS_MAP_CKSUMV5 (1U << 4)
+#endif
+#ifndef RMNET_FLAGS_EGRESS_MAP_CKSUMV5
+#define RMNET_FLAGS_EGRESS_MAP_CKSUMV5 (1U << 5)
+#endif
+
 struct rmnet_request {
 	uint32_t parent_ifindex;
 	rmnet_new_interfaces_func_t new_cb;
