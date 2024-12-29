@@ -1,3 +1,9 @@
+ofono (1:2.13-1) unstable; urgency=medium
+
+  * New Maemo release based on upstream
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Sun, 29 Dec 2024 15:54:22 +0100
+
 ofono (2.12-1) unstable; urgency=medium
 
   * New upstream release.
