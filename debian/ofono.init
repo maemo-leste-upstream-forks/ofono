@@ -17,7 +17,7 @@ DESC="oFono Mobile Telephony Daemon"
 
 test -x $DAEMON || exit 0
 
-. /usr/lib/lsb/init-functions
+. /lib/lsb/init-functions
 
 # allow the admin to set DAEMON_OPTS
 if [ -f /etc/default/ofono ]; then
