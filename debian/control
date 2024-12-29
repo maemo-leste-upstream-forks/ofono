@@ -4,15 +4,13 @@ Priority: optional
 Maintainer: Debian Telepathy maintainers <pkg-telepathy-maintainers@lists.alioth.debian.org>
 Uploaders: Héctor Orón Martínez <zumbi@debian.org>,
            Mike Gabriel <sunweaver@debian.org>,
-Build-Depends: debhelper (>= 13.11.6),
+Build-Depends: debhelper (>= 13),
                debhelper-compat (= 13),
-               dh-sequence-movetousr,
                libglib2.0-dev (>= 2.32),
                libdbus-1-dev,
                libudev-dev,
                udev,
                libbluetooth-dev (>= 4.30),
-               systemd-dev,
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
 Homepage: http://www.ofono.org/
