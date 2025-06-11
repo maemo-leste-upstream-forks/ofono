@@ -1,3 +1,22 @@
+ofono (1:2.18.0-1) unstable; urgency=medium
+
+  * New Maemo release based on upstream
+  * use gobi driver for droid4
+
+ -- Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>  Tue, 29 Jul 2025 05:45:13 +0300
+
+ofono (1:2.17.1-1) unstable; urgency=medium
+
+  * Additional SMS fixes
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Wed, 23 Jul 2025 19:37:58 +0200
+
+ofono (1:2.17.0-1) unstable; urgency=medium
+
+  * New Maemo release based on upstream
+
+ -- Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>  Wed, 04 Jun 2025 05:27:32 +0300
+
 ofono (1:2.13.0-1) unstable; urgency=medium
 
   * New Maemo release based on upstream
