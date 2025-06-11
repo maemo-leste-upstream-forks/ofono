@@ -141,6 +141,8 @@ ell/acd.c
 ell/tester.c
 ell/netconfig.c
 ell/sysctl.c
+ell/test-dbus.c
+ell/test-private.h
 ell/minheap.c
 ell/notifylist.c
 "
@@ -150,7 +152,7 @@ mkdir -p ../ell
 cd ../ell
 touch internal
 
-git clone --depth 1 https://git.kernel.org/pub/scm/libs/ell/ell.git -b 0.71
+git clone --depth 1 https://git.kernel.org/pub/scm/libs/ell/ell.git -b 0.72
 
 cd ell
 cp -va $filelist ..
