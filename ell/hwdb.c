@@ -27,7 +27,7 @@ static const char trie_sig[8] = { 'K', 'S', 'L', 'P', 'H', 'H', 'R', 'H' };
 
 struct trie_header {
 	uint8_t  signature[8];		/* Signature */
-	uint64_t version;		/* Version of creator tool */
+	uint64_t tool_version;		/* Version of creator tool */
 	uint64_t file_size;		/* Size of complete file */
 	uint64_t header_size;		/* Size of header structure */
 	uint64_t node_size;		/* Size of node structure */
@@ -62,13 +62,32 @@ struct trie_entry {
 	uint64_t value_offset;		/* Location of value string */
 } __attribute__ ((packed));
 
+struct trie_entry_v2 {
+	uint64_t key_offset;		/* Location of key string */
+	uint64_t value_offset;		/* Location of value string */
+	uint64_t filename_offset;
+	uint64_t line_number;
+} __attribute__ ((packed));
+
+struct trie_entry_v3 {
+	uint64_t key_offset;		/* Location of key string */
+	uint64_t value_offset;		/* Location of value string */
+	uint64_t filename_offset;
+	uint32_t line_number;
+	uint16_t file_priority;
+	uint16_t padding;
+} __attribute__ ((packed));
+
 struct l_hwdb {
 	int ref_count;
 	int fd;
 	time_t mtime;
 	size_t size;
 	void *addr;
-	uint64_t root;
+	uint64_t node_size;
+	uint64_t child_size;
+	uint64_t entry_size;
+	uint64_t root_offset;
 };
 
 LIB_EXPORT struct l_hwdb *l_hwdb_new(const char *pathname)
@@ -133,7 +152,10 @@ LIB_EXPORT struct l_hwdb *l_hwdb_new(const char *pathname)
 	hwdb->mtime = st.st_mtime;
 	hwdb->size = size;
 	hwdb->addr = addr;
-	hwdb->root = L_LE64_TO_CPU(hdr->root_offset);
+	hwdb->node_size = L_LE64_TO_CPU(hdr->node_size);
+	hwdb->child_size = L_LE64_TO_CPU(hdr->child_size);
+	hwdb->entry_size = L_LE64_TO_CPU(hdr->entry_size);
+	hwdb->root_offset = L_LE64_TO_CPU(hdr->root_offset);
 
 	return l_hwdb_ref(hwdb);
 
@@ -147,9 +169,13 @@ LIB_EXPORT struct l_hwdb *l_hwdb_new_default(void)
 {
 	struct l_hwdb *db = NULL;
 	size_t i;
-	const char * const paths[] = {"/etc/udev/hwdb.bin",
-					"/usr/lib/udev/hwdb.bin",
-					"/lib/udev/hwdb.bin"};
+	static const char * const paths[] = {
+		"/etc/systemd/hwdb/hwdb.bin",
+		"/etc/udev/hwdb.bin",
+		"/usr/lib/systemd/hwdb/hwdb.bin",
+		"/usr/lib/udev/hwdb.bin",
+		"/lib/udev/hwdb.bin",
+	};
 
 	for (i = 0; !db && i < L_ARRAY_SIZE(paths); i++)
 		db = l_hwdb_new(paths[i]);
@@ -182,14 +208,15 @@ LIB_EXPORT void l_hwdb_unref(struct l_hwdb *hwdb)
 	l_free(hwdb);
 }
 
-static void trie_fnmatch(const void *addr, uint64_t offset, const char *prefix,
-				const char *string,
+static void trie_fnmatch(struct l_hwdb *hwdb, uint64_t offset,
+				const char *prefix, const char *string,
 				struct l_hwdb_entry **entries)
 {
+	const void *addr = hwdb->addr;
 	const struct trie_node *node = addr + offset;
-	const void *addr_ptr = addr + offset + sizeof(*node);
+	const void *addr_ptr = addr + offset + hwdb->node_size;
 	const char *prefix_str = addr + L_LE64_TO_CPU(node->prefix_offset);
-	uint64_t child_count = L_LE64_TO_CPU(node->child_count);
+	uint8_t child_count = node->child_count;
 	uint64_t entry_count = L_LE64_TO_CPU(node->entry_count);
 	uint64_t i;
 	size_t scratch_len;
@@ -217,10 +244,10 @@ static void trie_fnmatch(const void *addr, uint64_t offset, const char *prefix,
 
 		scratch_buf[scratch_len] = child->c;
 
-		trie_fnmatch(addr, L_LE64_TO_CPU(child->child_offset),
-				scratch_buf, string, entries);
+		trie_fnmatch(hwdb, L_LE64_TO_CPU(child->child_offset),
+						scratch_buf, string, entries);
 
-		addr_ptr += sizeof(*child);
+		addr_ptr += hwdb->child_size;
 	}
 
 	if (!entry_count)
@@ -246,7 +273,7 @@ static void trie_fnmatch(const void *addr, uint64_t offset, const char *prefix,
 			*entries = result;
 		}
 
-		addr_ptr += sizeof(*entry);
+		addr_ptr += hwdb->entry_size;
 	}
 }
 
@@ -277,7 +304,7 @@ LIB_EXPORT struct l_hwdb_entry *l_hwdb_lookup_valist(struct l_hwdb *hwdb,
 	if (len < 0)
 		return NULL;
 
-	trie_fnmatch(hwdb->addr, hwdb->root, "", modalias, &entries);
+	trie_fnmatch(hwdb, hwdb->root_offset, "", modalias, &entries);
 
 	free(modalias);
 
@@ -295,13 +322,15 @@ LIB_EXPORT void l_hwdb_lookup_free(struct l_hwdb_entry *entries)
 	}
 }
 
-static void foreach_node(const void *addr, uint64_t offset, const char *prefix,
+static void foreach_node(struct l_hwdb *hwdb,
+				uint64_t offset, const char *prefix,
 				l_hwdb_foreach_func_t func, void *user_data)
 {
+	const void *addr = hwdb->addr;
 	const struct trie_node *node = addr + offset;
-	const void *addr_ptr = addr + offset + sizeof(*node);
+	const void *addr_ptr = addr + offset + hwdb->node_size;
 	const char *prefix_str = addr + L_LE64_TO_CPU(node->prefix_offset);
-	uint64_t child_count = L_LE64_TO_CPU(node->child_count);
+	uint8_t child_count = node->child_count;
 	uint64_t entry_count = L_LE64_TO_CPU(node->entry_count);
 	uint64_t i;
 	size_t scratch_len;
@@ -318,10 +347,10 @@ static void foreach_node(const void *addr, uint64_t offset, const char *prefix,
 
 		scratch_buf[scratch_len] = child->c;
 
-		foreach_node(addr, L_LE64_TO_CPU(child->child_offset),
+		foreach_node(hwdb, L_LE64_TO_CPU(child->child_offset),
 						scratch_buf, func, user_data);
 
-		addr_ptr += sizeof(*child);
+		addr_ptr += hwdb->child_size;
 	}
 
 	if (!entry_count)
@@ -344,7 +373,7 @@ static void foreach_node(const void *addr, uint64_t offset, const char *prefix,
 			entries = result;
 		}
 
-		addr_ptr += sizeof(*entry);
+		addr_ptr += hwdb->entry_size;
 	}
 
 	func(scratch_buf, entries, user_data);
@@ -358,7 +387,7 @@ LIB_EXPORT bool l_hwdb_foreach(struct l_hwdb *hwdb, l_hwdb_foreach_func_t func,
 	if (!hwdb || !func)
 		return false;
 
-	foreach_node(hwdb->addr, hwdb->root, "", func, user_data);
+	foreach_node(hwdb, hwdb->root_offset, "", func, user_data);
 
 	return true;
 }
