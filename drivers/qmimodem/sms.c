@@ -349,7 +349,7 @@ static void delete_msg(struct ofono_sms *sms, uint8_t tag)
 	param = qmi_param_new();
 
 	qmi_param_append_uint8(param, QMI_WMS_PARAM_DEL_STORE,
-				QMI_WMS_STORAGE_TYPE_NV);
+				QMI_WMS_STORAGE_TYPE_UIM);
 
 	if (tag == QMI_WMS_MT_UNDEFINE) {
 		DBG("delete read msg type %d ndx %d", data->rd_msg_id.type,
@@ -516,7 +516,7 @@ static void get_msg_list(struct ofono_sms *sms)
 
 	/* query NOT_READ msg list */
 	qmi_param_append_uint8(param, QMI_WMS_PARAM_STORAGE_TYPE,
-				QMI_WMS_STORAGE_TYPE_NV);
+				QMI_WMS_STORAGE_TYPE_UIM);
 	qmi_param_append_uint8(param, QMI_WMS_PARAM_TAG_TYPE,
 				QMI_WMS_MT_NOT_READ);
 	qmi_param_append_uint8(param, QMI_WMS_PARAM_MESSAGE_MODE,
@@ -733,7 +733,7 @@ static void get_routes_cb(struct qmi_result *result, void *user_data)
 	new_list->count = L_CPU_TO_LE16(1);
 	new_list->route[0].msg_type = QMI_WMS_MSG_TYPE_P2P;
 	new_list->route[0].msg_class = QMI_WMS_MSG_CLASS_NONE;
-	new_list->route[0].storage_type = QMI_WMS_STORAGE_TYPE_NV;
+	new_list->route[0].storage_type = QMI_WMS_STORAGE_TYPE_UIM;
 	new_list->route[0].action = QMI_WMS_ACTION_STORE_AND_NOTIFY;
 
 	param = qmi_param_new();
