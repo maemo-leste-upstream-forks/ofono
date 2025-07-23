@@ -571,6 +571,47 @@ static void get_msg_protocol(struct ofono_sms *sms)
 				get_msg_protocol_cb, sms, NULL);
 }
 
+static void send_ack_cb(struct qmi_result *result, void *user_data)
+{
+	uint16_t err;
+
+	DBG("");
+
+	if (!qmi_result_set_error(result, &err))
+		return;
+
+	DBG("Err: protocol %d - %s",
+			err, qmi_result_get_error(result));
+}
+
+static void send_ack(struct sms_data *data,
+				const struct qmi_wms_result_message *message)
+{
+	struct __attribute__((__packed__)) {
+		uint32_t transaction_id;
+		uint8_t mode;
+		uint8_t success;
+	} ack;
+	struct qmi_param *param;
+
+	ack.transaction_id = message->transaction_id;
+	ack.success = 1;
+
+	if (message->msg_format == 0)
+		ack.mode = QMI_WMS_MESSAGE_MODE_CDMA;
+	else
+		ack.mode = QMI_WMS_MESSAGE_MODE_GSMWCDMA;
+
+	param = qmi_param_new();
+	qmi_param_append(param, 0x01, sizeof(ack), &ack);
+
+	if (qmi_service_send(data->wms, QMI_WMS_SEND_ACK, param,
+				send_ack_cb, NULL, NULL) > 0)
+		return;
+
+	qmi_param_free(param);
+}
+
 static void event_notify(struct qmi_result *result, void *user_data)
 {
 	struct ofono_sms *sms = user_data;
@@ -614,6 +655,9 @@ static void event_notify(struct qmi_result *result, void *user_data)
 				L_LE32_TO_CPU(message->transaction_id));
 			DBG("msg format %d PDU length %d",
 				message->msg_format, plen);
+
+			if (message->ack_required == QMI_WMS_ACK_REQUIRED)
+				send_ack(data, message);
 
 			ofono_sms_deliver_notify(sms, message->msg_data,
 							plen, plen);

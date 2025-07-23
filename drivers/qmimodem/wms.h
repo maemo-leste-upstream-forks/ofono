@@ -20,6 +20,7 @@
 #define QMI_WMS_GET_SMSC_ADDR		52	/* Get SMSC address */
 #define QMI_WMS_SET_SMSC_ADDR		53	/* Set SMSC address */
 #define QMI_WMS_GET_MSG_LIST_MAX	54	/* Get maximum size of SMS storage */
+#define QMI_WMS_SEND_ACK		55	/* Send Ack */
 
 #define QMI_WMS_GET_DOMAIN_PREF		64	/* Get domain preference */
 #define QMI_WMS_SET_DOMAIN_PREF		65	/* Set domain preference */
@@ -31,6 +32,8 @@ struct qmi_wms_result_new_msg_notify {
 	uint8_t storage_type;
 	uint32_t storage_index;
 } __attribute__((__packed__));
+
+#define QMI_WMS_ACK_REQUIRED			0x00
 
 #define QMI_WMS_RESULT_MESSAGE			0x11
 struct qmi_wms_result_message {
