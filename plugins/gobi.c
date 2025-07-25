@@ -717,7 +717,7 @@ static void create_wda_cb(struct qmi_service *service, void *user_data)
 		DBG("Failed to request WDA service, assume 802.3");
 
 		if (qmi_qmux_device_create_client(data->device, QMI_SERVICE_DMS,
-					request_service_cb, modem, NULL) > 0)
+					request_service_cb, modem, NULL))
 			return;
 
 		goto error;
@@ -797,8 +797,11 @@ static void discover_cb(void *user_data)
 	if (data->features & GOBI_UIM)
 		add_service_request(data, &data->uim, QMI_SERVICE_UIM);
 
-	if (qmi_qmux_device_create_client(data->device, QMI_SERVICE_WDA,
-						create_wda_cb, modem, NULL))
+	if (data->features & GOBI_WDA) {
+		if (qmi_qmux_device_create_client(data->device,
+				QMI_SERVICE_WDA, create_wda_cb, modem, NULL))
+			return;
+	} else if (start_service_requests(modem))
 		return;
 
 error:
