@@ -109,6 +109,7 @@ struct gobi_data {
 	uint32_t set_powered_id;
 	uint32_t set_mtu_id;
 	enum wda_data_format data_format;
+	uint8_t off_opmode;
 	bool no_pass_through : 1;
 };
 
@@ -217,12 +218,14 @@ static int gobi_probe(struct ofono_modem *modem)
 	struct gobi_data *data;
 	const char *if_driver;
 	const char *ifname;
+	const char *opmode;
 	uint8_t interface_number;
 	int ifindex;
 	const char *bus;
 	struct stat st;
 	_auto_(l_free) char *pass_through = NULL;
 	bool no_pass_through = false;
+	uint8_t off_opmode = QMI_DMS_OPER_MODE_LOW_POWER;
 
 	DBG("%p", modem);
 
@@ -231,6 +234,7 @@ static int gobi_probe(struct ofono_modem *modem)
 	ifname = ofono_modem_get_string(modem, "NetworkInterface");
 	ifindex = ofono_modem_get_integer(modem, "NetworkInterfaceIndex");
 	bus = ofono_modem_get_string(modem, "Bus");
+	opmode = ofono_modem_get_string(modem, "OfflineOperatingMode");
 
 	DBG("net: %s[%s](%d) %s", ifname, if_driver, ifindex, bus);
 
@@ -255,6 +259,15 @@ static int gobi_probe(struct ofono_modem *modem)
 			return -errno;
 	}
 
+	if (opmode) {
+		DBG("offline power mode: %s", opmode);
+
+		if (!strcmp(opmode, "PersistentLowPower"))
+			off_opmode = QMI_DMS_OPER_MODE_PERSIST_LOW_POWER;
+		else if (strcmp(opmode, "LowPower"))
+			return -ENOTSUP;
+	}
+
 	data = l_new(struct gobi_data, 1);
 	data->main_net_ifindex = ifindex;
 	l_strlcpy(data->main_net_name, ifname, sizeof(data->main_net_name));
@@ -262,6 +275,7 @@ static int gobi_probe(struct ofono_modem *modem)
 	data->no_pass_through = no_pass_through;
 	/* See drivers/net/ethernet/qualcomm/rmnet/rmnet_private.h */
 	data->max_aggregation_size = 16384;
+	data->off_opmode = off_opmode;
 
 	ofono_modem_set_data(modem, data);
 
@@ -442,7 +456,7 @@ static void get_oper_mode_cb(struct qmi_result *result, void *user_data)
 	switch (data->oper_mode) {
 	case QMI_DMS_OPER_MODE_ONLINE:
 		param = qmi_param_new_uint8(QMI_DMS_PARAM_OPER_MODE,
-					QMI_DMS_OPER_MODE_LOW_POWER);
+						data->off_opmode);
 		if (!param) {
 			shutdown_device(modem);
 			return;
@@ -935,8 +949,7 @@ static int gobi_disable(struct ofono_modem *modem)
 	if (ofono_modem_get_boolean(modem, "AlwaysOnline"))
 		goto out;
 
-	param = qmi_param_new_uint8(QMI_DMS_PARAM_OPER_MODE,
-					QMI_DMS_OPER_MODE_LOW_POWER);
+	param = qmi_param_new_uint8(QMI_DMS_PARAM_OPER_MODE, data->off_opmode);
 	if (!param)
 		return -ENOMEM;
 
