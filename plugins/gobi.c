@@ -792,6 +792,8 @@ static void discover_cb(void *user_data)
 		add_service_request(data, &data->wms, QMI_SERVICE_WMS);
 	if (data->features & GOBI_VOICE)
 		add_service_request(data, &data->voice, QMI_SERVICE_VOICE);
+	if (data->features & GOBI_PDS)
+		add_service_request(data, &data->pds, QMI_SERVICE_PDS);
 	if (data->features & GOBI_UIM)
 		add_service_request(data, &data->uim, QMI_SERVICE_UIM);
 
