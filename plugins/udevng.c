@@ -255,6 +255,7 @@ static int setup_qmi_qmux(struct modem_info *modem,
 	ofono_modem_set_string(modem->modem, "InterfaceNumber", net->number);
 
 	ofono_modem_set_string(modem->modem, "Bus", "usb");
+	ofono_modem_set_boolean(modem->modem, "LTE", true);
 
 	return setup_qmi_netdev(modem, net);
 }

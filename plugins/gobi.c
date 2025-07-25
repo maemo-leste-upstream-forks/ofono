@@ -57,6 +57,7 @@
 #define GOBI_UIM	(1 << 5)
 #define GOBI_VOICE	(1 << 6)
 #define GOBI_WDA	(1 << 7)
+#define GOBI_LTE	(1 << 8)
 
 #define MAX_CONTEXTS 4
 #define DEFAULT_MTU 1400
@@ -262,8 +263,13 @@ static int gobi_probe(struct ofono_modem *modem)
 	/* See drivers/net/ethernet/qualcomm/rmnet/rmnet_private.h */
 	data->max_aggregation_size = 16384;
 
+	if (ofono_modem_get_boolean(modem, "LTE"))
+		data->features |= GOBI_LTE;
+
 	ofono_modem_set_data(modem, data);
-	ofono_modem_set_capabilities(modem, OFONO_MODEM_CAPABILITY_LTE);
+
+	if (data->features & GOBI_LTE)
+		ofono_modem_set_capabilities(modem, OFONO_MODEM_CAPABILITY_LTE);
 
 	return 0;
 }
@@ -1144,7 +1150,7 @@ static void gobi_post_sim(struct ofono_modem *modem)
 
 	DBG("%p", modem);
 
-	if (data->features & GOBI_WDS)
+	if (data->features & GOBI_WDS && data->features & GOBI_LTE)
 		ofono_lte_create(modem, 0, "qmimodem",
 					qmi_service_clone(data->wds));
 
