@@ -527,7 +527,7 @@ error:
 	shutdown_device(modem);
 }
 
-static uint32_t start_service_requests(struct ofono_modem *modem)
+static bool start_service_requests(struct ofono_modem *modem)
 {
 	struct gobi_data *data = ofono_modem_get_data(modem);
 	unsigned int i;
@@ -570,7 +570,7 @@ static void rmnet_get_interfaces_cb(int error, unsigned int n_interfaces,
 				sizeof(struct rmnet_ifinfo) * n_interfaces);
 	data->n_premux = n_interfaces;
 
-	if (start_service_requests(modem) > 0)
+	if (start_service_requests(modem))
 		return;
 error:
 	shutdown_device(modem);
@@ -618,7 +618,7 @@ static void enable_set_mtu_cb(int error, uint16_t type,
 		goto error;
 	}
 
-	if (start_service_requests(modem) > 0)
+	if (start_service_requests(modem))
 		return;
 error:
 	shutdown_device(modem);
