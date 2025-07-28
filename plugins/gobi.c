@@ -57,6 +57,7 @@
 #define GOBI_UIM	(1 << 5)
 #define GOBI_VOICE	(1 << 6)
 #define GOBI_WDA	(1 << 7)
+#define GOBI_LTE	(1 << 8)
 
 #define MAX_CONTEXTS 4
 #define DEFAULT_MTU 1400
@@ -263,7 +264,6 @@ static int gobi_probe(struct ofono_modem *modem)
 	data->max_aggregation_size = 16384;
 
 	ofono_modem_set_data(modem, data);
-	ofono_modem_set_capabilities(modem, OFONO_MODEM_CAPABILITY_LTE);
 
 	return 0;
 }
@@ -480,8 +480,17 @@ static void get_caps_cb(struct qmi_result *result, void *user_data)
         DBG("service capabilities %d", caps->data_capa);
         DBG("sim supported %d", caps->sim_supported);
 
-        for (i = 0; i < caps->radio_if_count; i++)
-                DBG("radio = %d", caps->radio_if[i]);
+	for (i = 0; i < caps->radio_if_count; i++) {
+		uint8_t iface = caps->radio_if[i];
+
+		DBG("radio = %d", iface);
+
+		if (iface & QMI_DMS_RADIO_IF_LTE)
+			data->features |= GOBI_LTE;
+	}
+
+	if (data->features & GOBI_LTE)
+		ofono_modem_set_capabilities(modem, OFONO_MODEM_CAPABILITY_LTE);
 
 	if (qmi_service_send(data->dms, QMI_DMS_GET_OPER_MODE, NULL,
 					get_oper_mode_cb, modem, NULL) > 0)
@@ -1144,7 +1153,7 @@ static void gobi_post_sim(struct ofono_modem *modem)
 
 	DBG("%p", modem);
 
-	if (data->features & GOBI_WDS)
+	if (data->features & GOBI_WDS && data->features & GOBI_LTE)
 		ofono_lte_create(modem, 0, "qmimodem",
 					qmi_service_clone(data->wds));
 
